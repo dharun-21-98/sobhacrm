@@ -39,3 +39,7 @@ Construction assets are illustrative CSS graphics, not actual site photographs. 
 Financial `Balance pending` follows the supplied Installment-demands-minus-receipts formula; `Outstanding` additionally includes interest debits. The source specification also says those two must match D365 closing balance, which is ambiguous for interest-bearing accounts. These amounts are shown separately rather than changing ledger data to conceal the difference.
 
 The implementation uses native form controls styled with Tailwind and a shared CSS layer, with accessible Radix dialogs. All workflows are local demonstrations; resource bodies and templates contain illustrative guidance that requires business review before real use.
+
+## Remark regression checks
+
+With the development server running, use `npm run test:remarks` (optionally set `BASE_URL` and `CHROMIUM_PATH`). This suite checks add/edit/reload, keyboard-opened inline remarks, cross-screen synchronization, and separate external/internal ticket replies with `crypto.randomUUID` disabled to reproduce HTTP preview browser capabilities. Record IDs fall back to `crypto.getRandomValues` on those hosts.
