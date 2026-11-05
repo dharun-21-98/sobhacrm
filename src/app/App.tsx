@@ -1,3 +1,4 @@
+import { DesktopNavigation, MobileNavigation } from "../components/Navigation";
 import { useLocation } from "react-router-dom";
 import { useData } from "./useData";
 import { useSession } from "../features/auth/session";
@@ -23,9 +24,8 @@ import {
 } from "../data/management/queries";
 import { createId } from "../lib/id";
 import { RemarkForm } from "../components/RemarkForm";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
-  NavLink,
   Routes,
   Route,
   Navigate,
@@ -35,20 +35,15 @@ import {
   Link,
 } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Users,
   Wallet,
-  KeyRound,
   Building2,
   BookOpen,
   Ticket as TicketIcon,
-  BarChart3,
   Search,
   Bell,
   ChevronDown,
   ArrowUpRight,
   CalendarDays,
-  PanelLeftClose,
   Plus,
   Check,
   FileText,
@@ -78,28 +73,6 @@ import {
   DataList,
   Assumptions,
 } from "../components/ui";
-const paths = [
-  "/workspace",
-  "/customers",
-  "/collections",
-  "/handover-registration",
-  "/projects",
-  "/faqs",
-  "/tickets",
-  "/reports",
-  "/escalations",
-];
-const icons = [
-  LayoutDashboard,
-  Users,
-  Wallet,
-  KeyRound,
-  Building2,
-  BookOpen,
-  TicketIcon,
-  BarChart3,
-  FileText,
-];
 export default function App() {
   const { userId } = useSession();
   const location = useLocation();
@@ -142,6 +115,30 @@ function ApplicationShell() {
   const location = useLocation();
   const { logout } = useSession();
   const { reset: resetScope } = useManagementFilters();
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const dismissOutside = (event: PointerEvent) => {
+      if (!headerRef.current?.contains(event.target as Node)) {
+        M(false);
+        B(false);
+        Q("");
+      }
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        M(false);
+        B(false);
+        Q("");
+      }
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, []);
+
   const notifications = db.notifications.filter(
     (n) => n.userId === user.id && allowedPath(db, user.id, n.link),
   );
@@ -160,37 +157,17 @@ function ApplicationShell() {
   ).length;
   return (
     <div className={`shell ${collapsed ? "collapsed" : ""}`}>
-      <aside>
-        <div className="brand">
-          SOBHA<span>PASSION AT WORK</span>
-        </div>
-        <small className="nav-label">{roleName(user.role).toUpperCase()}</small>
-        <nav>
-          {config.role_permission[
-            user.role as keyof typeof config.role_permission
-          ].map((name, i) => {
-            const Icon = icons[i];
-            return (
-              <NavLink key={name} to={paths[i]}>
-                <Icon size={19} />
-                <span>{name}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="demo-dot" /> <span>Demo workspace</span>
-          <button
-            aria-label="Collapse sidebar"
-            className="icon"
-            onClick={() => C(!collapsed)}
-          >
-            <PanelLeftClose size={18} />
-          </button>
-        </div>
-      </aside>
+      <DesktopNavigation
+        role={user.role}
+        collapsed={collapsed}
+        toggle={() => C(!collapsed)}
+      />
       <div className="main">
-        <header>
+        <header className="app-header" ref={headerRef}>
+          <MobileNavigation role={user.role} />
+          <span className="mobile-brand" aria-hidden="true">
+            SOBHA
+          </span>
           <div className="global-search">
             <Search size={17} />
             <input
@@ -226,16 +203,22 @@ function ApplicationShell() {
           </div>
           <button
             className="visit-chip"
+            aria-label={`${scheduled} site visits scheduled`}
             onClick={() => nav("/customers?visit=Scheduled")}
           >
             <CalendarDays size={16} />
-            {scheduled} Site Visits Scheduled
+            <span>{scheduled}</span>
+            <span className="visit-label">Site Visits Scheduled</span>
+            <span className="visit-label-short">Visits</span>
           </button>
           <div className="relative">
             <button
               aria-label="Notifications"
               className="icon bell"
-              onClick={() => B(!bell)}
+              onClick={() => {
+                B(!bell);
+                M(false);
+              }}
             >
               <Bell size={20} />
               {notifications.some((n) => !n.isRead) && <i />}
@@ -263,14 +246,22 @@ function ApplicationShell() {
             )}
           </div>
           <div className="relative">
-            <button className="user" onClick={() => M(!menu)}>
+            <button
+              className="user"
+              aria-label={`${user.name} ${roleName(user.role)}`}
+              aria-expanded={menu}
+              onClick={() => {
+                M(!menu);
+                B(false);
+              }}
+            >
               <span className="avatar">
                 {user.name
                   .split(" ")
                   .map((n) => n[0])
                   .join("")}
               </span>
-              <span>
+              <span className="user-details">
                 {user.name}
                 <small>{roleName(user.role)}</small>
               </span>

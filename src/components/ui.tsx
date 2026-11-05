@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect, useId } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Download, Search, Info } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -178,6 +178,8 @@ export function DataList({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [limit, setLimit] = useState(30);
+  const [horizontalOverflow, setHorizontalOverflow] = useState(false);
+  const hintId = useId();
   const keys =
     columns || Object.keys(rows[0] || {}).filter((k) => !k.startsWith("_"));
   const defs: ColumnDef<Record<string, unknown>>[] = keys.map((k) => ({
@@ -191,6 +193,18 @@ export function DataList({
       </span>
     ),
   }));
+  useEffect(() => {
+    const viewport = ref.current;
+    if (!viewport) return;
+    const measure = () =>
+      setHorizontalOverflow(viewport.scrollWidth > viewport.clientWidth + 1);
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    const table = viewport.querySelector("table");
+    if (table) observer.observe(table);
+    measure();
+    return () => observer.disconnect();
+  }, [keys.join("|"), rows.length]);
   const visibleRows = useMemo(() => rows.slice(0, limit), [rows, limit]);
   const table = useReactTable({
     data: visibleRows,
@@ -222,8 +236,17 @@ export function DataList({
           Export
         </button>
       </div>
+      {horizontalOverflow && (
+        <p className="table-hint" id={hintId}>
+          Scroll horizontally to view all columns →
+        </p>
+      )}
       <div
         className="table-scroll"
+        role="region"
+        aria-label={`${name} table`}
+        aria-describedby={horizontalOverflow ? hintId : undefined}
+        tabIndex={horizontalOverflow ? 0 : undefined}
         ref={ref}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -251,6 +274,8 @@ export function DataList({
               return (
                 <tr
                   key={row.id}
+                  data-index={v.index}
+                  ref={virtual.measureElement}
                   style={{ height: 64 }}
                   onClick={() => onRow?.(row.original)}
                   tabIndex={onRow ? 0 : undefined}

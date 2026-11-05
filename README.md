@@ -1,6 +1,6 @@
 # Sobha relationship management prototype
 
-Desktop-first React 18 / TypeScript / Vite prototype implementing the RM specification and the approved [persona expansion plan](docs/PERSONA_LOGIN_AND_ROLE_EXPANSION_PLAN.md), mapped to `Doodleblue Sobha_RM_Platform_Feature_Mapping_V2 (1).xlsx`.
+Responsive React 18 / TypeScript / Vite prototype implementing the RM specification and the approved [persona expansion plan](docs/PERSONA_LOGIN_AND_ROLE_EXPANSION_PLAN.md), mapped to `Doodleblue Sobha_RM_Platform_Feature_Mapping_V2 (1).xlsx`.
 
 ## Run
 
@@ -54,6 +54,7 @@ npm test               # Scope, permissions, reconciliation, migration, import a
 npm run test:browser    # Existing RM workflow, documents, tickets and filtered Excel
 npm run test:remarks    # HTTP-compatible saves, edit/reload and cross-screen remarks
 npm run test:personas   # Login, hierarchy isolation, tasks, audit, browser migration, reports, imports
+npm run test:responsive # Phone/tablet/desktop layouts, navigation, tables and form interactions
 ```
 
 Browser tests use Playwright and `/usr/bin/chromium`. Override `CHROMIUM_PATH` and/or `BASE_URL` for another machine or port. `npm run format` formats source and scripts.
@@ -76,3 +77,11 @@ Browser tests use Playwright and `/usr/bin/chromium`. Override `CHROMIUM_PATH` a
 No live D365 / Fabric / CMS / SharePoint, identity provider, signing or messaging integration exists. Construction images are illustrative graphics and project documents are placeholder PDFs. Timeline wording, report inventory, collectible definition, management attribution / category allocation and escalation schema are approved demo assumptions awaiting business confirmation. No unspecified Admin / CMS modules were added from Open Questions or blank sheets.
 
 `Balance pending` follows the original installment-demands-minus-receipts formula; interest-inclusive `Outstanding` is shown separately. Handover initiation also checks the full ledger balance. This preserves the earlier documented ambiguity rather than changing ledger data to conceal it. Interest is sourced from the mock ledger; CRM does not recalculate it.
+
+## Responsive layout
+
+The login and all persona views adapt to phone, tablet and desktop widths. Below 1025px the sidebar becomes a focus-trapped navigation drawer, with links that close the drawer and support Escape / backdrop dismissal. Desktop collapse state is independent from the drawer, and resizing to desktop closes it safely.
+
+Cards and profile sections stack as space reduces; mobile filters and dialogs remain usable at narrow and short landscape sizes. Touch devices receive larger controls, and input text avoids automatic focus zoom. Wide data tables retain their columns inside a labelled, keyboard-focusable horizontal scrolling region with a scroll hint; the page itself does not scroll sideways. Virtual rows measure their actual height as controls and content resize.
+
+`npm run test:responsive` checks layouts from 320px through 1920px, RM routes at 320 / 390 / 768 / 1024 / 1280 / 1440px, management routes at phone and tablet widths, and drawer / dialog behavior in landscape. Business data, permissions, filtering and exports use the same existing implementation.
