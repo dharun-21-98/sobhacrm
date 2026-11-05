@@ -1,45 +1,78 @@
-# Sobha Relationship Manager prototype
+# Sobha relationship management prototype
 
-A desktop-first React 18 / TypeScript prototype based on `Sobha_RM_Platform_Prototype_Spec.md`. All services and document sharing are simulated. No production credentials or backend are required.
+Desktop-first React 18 / TypeScript / Vite prototype implementing the RM specification and the approved [persona expansion plan](docs/PERSONA_LOGIN_AND_ROLE_EXPANSION_PLAN.md), mapped to `Doodleblue Sobha_RM_Platform_Feature_Mapping_V2 (1).xlsx`.
 
 ## Run
 
-Node 22+ (validated with Node 24), npm 11.
+Node 22+ (validated with Node 24), npm 11:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Vite serves port 5173. `npm run build` type-checks and produces `dist/`; `npm test` runs the business-rule tests.
+Vite serves port 5173. Start at `/login`, select a persona and a demo user, and choose **Login to workspace**. No password or production credentials are required. This is a simulated frontend, not production authentication or backend authorization.
 
-Optional browser smoke test: with Playwright available and Chromium installed, run `node scripts/smoke.cjs` against the running development server. It validates routes, persistent remarks, scheduling, document-gated completion, ticket consolidation, and supervisor navigation. The system Chromium executable is `/usr/bin/chromium`; adjust it for another machine.
+## Personas
 
-## Demo
+| Persona    | Demo users                                                             | Scope and additions                                                                                                                                    |
+| ---------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RM         | Ananya Sharma, Arjun Menon, Priya Nair, Rahul Rao                      | Existing mapped-customer workflow                                                                                                                      |
+| TL         | Vikram Desai (South: Ananya, Arjun, Priya), Kavya Reddy (North: Rahul) | RM foundation plus team analytics, capacity, aging, task creation, audited tag overrides, remark review and reports                                    |
+| Leadership | Meera Iyer                                                             | Inherited views across teams, enterprise insights, category targets, segment / upsell reports, read-only ticket oversight and escalation review import |
 
-Start at `/workspace`. The user menu switches between four RMs, a team lead and Leadership. Reports is supervisor-only. Search `B-0902` to open the hero customer. To exercise handover completion, schedule a Handover visit from Customer Detail, then upload a **Customer sign-off** document in the **Handover** bucket from the handover detail screen. Registration needs a **Sale deed** document in the **Registration** bucket and an OC-enabled project.
+Empty persona sheets reuse existing RM layouts. Reports and Escalation Review are guarded by persona. TL data uses explicit hierarchy relationships; global search, deep links and mutations use the same authorized scope. Projects remains the shared view-only all-projects catalog.
 
-The single Zustand store persists to localStorage (`sobha-demo-v1`). Reset demo data in the user menu restores the fixed seed. Uploaded documents are stored locally as data URLs; the prototype limits each upload to 2 MB. Use small documents and reset if browser storage fills. Generated statements and letters are not retained. Document downloads are explicitly marked prototype PDFs; Share and Share for signing simulate confirmation without sending anything.
+Refresh preserves the active demo session in **sessionStorage** (`sobha-demo-session`). **Change persona** and **Logout** return to login and clear transient scope / search / panel state while retaining business records. Old saved `userId` does not bypass login.
+
+## Workflows
+
+- Search `B-0902` for the hero customer. To complete handover, schedule a Handover visit in Customer Detail, then upload a **Customer sign-off** in the **Handover** bucket. Registration requires project OC, collected details and a **Sale deed** in the **Registration** bucket.
+- In a TL / Leadership workspace, **Create RM task** chooses an in-scope RM and one of their mapped units. The RM receives the task in Workspace / My Tasks and a notification.
+- **Override tags** in Customer Detail requires a supervisory reason. The dialog retains before/after values, author, role and time. Supervisory remarks stay separate from RM remarks and appear in consolidated history.
+- Management scope controls month, team (Leadership), RM, project and wing. Current-state exposure / capacity is labelled separately from selected-month receipts and lifecycle activity.
+- Reports provide filtered Excel downloads. **Download report with scope** includes a metadata sheet with filters, persona, month, source, D-1 date and attribution convention. Table **Export** downloads the corresponding filtered rows.
+- Leadership ticket oversight shares the ticket layout but has no priority, status, creation or reply mutations. Missing SLA policies show **SLA not configured**.
+- Leadership **Escalation Review** supports `.xlsx` and `.csv` (first sheet), up to 5 MB and 5,000 rows. Download the sample template, upload, review validation and confirm import. Required columns: `Review ID`, `Unit Number`, `Subject`; supply `Customer Code` to resolve ambiguous units. Duplicate IDs and invalid references block confirmation. Imported reviews remain separate from native tickets; manager guidance updates the review and consolidated customer remarks.
+
+## Data and calculations
+
+The business store persists in **localStorage** (`sobha-demo-v1`, version 2). The migration adds hierarchy-related metadata and management data without replacing existing customer edits, remarks, uploaded documents or task changes. **Reset demo data** explicitly restores the seed.
+
+The seed includes 520 inventory rows, four projects, 298 sold/history rows mapped to the demo RM, 75 tickets, 17 initial tasks and 68 KB articles. The existing hero and RM scenarios are retained. Explicit mock CMS target records cover each RM / project / tower / category for three months. The demo RM has Rs 18.20 Cr receipts against a Rs 24.27 Cr target in the current seed month.
+
+Shared units remain visible to mapped RMs. Management financial and lifecycle reporting attributes each unit to its **primary mapped RM** to prevent double counting. A TL can see a unit shared from another team; its financial achievement remains attributed to its primary owner. Unique managed-account counts and attributed performance are labelled separately. Management category receipts are disjoint: PC-tagged first, then explicit New Billing / Regular allocation. Upsell conversion uses the selected month's request cohort and preserves Rejected / Cancelled counts.
+
+Documents uploaded to the prototype use browser-local data URLs (2 MB per file); use small demonstration documents to stay within browser storage limits. Generated statements and letters are not retained. Template sharing, signing and document downloads are simulated and clearly marked as prototype content.
+
+## Validation
+
+```sh
+npm run build          # TypeScript and production build
+npm test               # Scope, permissions, reconciliation, migration, import and ID rules
+# Start npm run dev before the following:
+npm run test:browser    # Existing RM workflow, documents, tickets and filtered Excel
+npm run test:remarks    # HTTP-compatible saves, edit/reload and cross-screen remarks
+npm run test:personas   # Login, hierarchy isolation, tasks, audit, browser migration, reports, imports
+```
+
+Browser tests use Playwright and `/usr/bin/chromium`. Override `CHROMIUM_PATH` and/or `BASE_URL` for another machine or port. `npm run format` formats source and scripts.
 
 ## Structure
 
-- `src/data/config.ts`: assumptions, configurable thresholds, role permissions, tags and categories.
-- `src/data/seed`: typed entities and deterministic Indian customer data (520 inventory rows, four projects, 298 sold/history rows mapped to the demo RM, 75 tickets, 17 tasks, 68 KB articles).
-- `src/data/repo`: persisted store and mutations.
-- `src/data/rules`: shared finance, scope, aging, segmentation and readiness queries.
-- `src/components/ui.tsx`: Radix modal, virtualized TanStack table, filtered XLSX exports, cards and controls.
-- `src/app/App.tsx`: shell, routes and feature screens.
+- `src/features/auth`: demo login and separate session state.
+- `src/features/management`: inherited team / enterprise workspaces, scope controls, task creation and tag audit.
+- `src/features/reports`: report catalog and exports with scope metadata.
+- `src/features/escalations`: import validation, preview and separate review register.
+- `src/data/users.ts`, `access.ts`: hierarchy, capabilities, route and mutation scope checks.
+- `src/data/management`: explicit target seeds, primary-RM attribution, management calculations and tests.
+- `src/data/repo`: persisted business store and backward-compatible migration.
+- `src/data/config.ts`: prototype assumptions, thresholds, permissions and import limits.
+- `src/components`: shared virtualized tables, dialogs, cards and remark composer.
+- `src/app`: role-aware shell, shared RM routes and scoped data hook.
 
-Finance and portfolio cards share query functions. Current-month collection receipts total Rs 18.20 Cr across the demo RM's sold/history accounts, against the configured Rs 24.27 Cr target. D365 cards show D-1 freshness. Dates use the session clock; the fixed historic hero visit remains 02 Nov 2026, and does not appear as an upcoming visit after that date.
+## Prototype boundaries
 
-## Prototype limits and source questions
+No live D365 / Fabric / CMS / SharePoint, identity provider, signing or messaging integration exists. Construction images are illustrative graphics and project documents are placeholder PDFs. Timeline wording, report inventory, collectible definition, management attribution / category allocation and escalation schema are approved demo assumptions awaiting business confirmation. No unspecified Admin / CMS modules were added from Open Questions or blank sheets.
 
-Construction assets are illustrative CSS graphics, not actual site photographs. Project resources use placeholder PDFs. Construction milestones and account milestone names are illustrative, and the activity timeline is marked as placeholder stages. No Fabric, CMS, SharePoint, D365 or signing integration exists. No bank-loan details, ticket SLAs, referral feature, or TL/Leadership screens beyond role scope and Reports are invented.
-
-Financial `Balance pending` follows the supplied Installment-demands-minus-receipts formula; `Outstanding` additionally includes interest debits. The source specification also says those two must match D365 closing balance, which is ambiguous for interest-bearing accounts. These amounts are shown separately rather than changing ledger data to conceal the difference.
-
-The implementation uses native form controls styled with Tailwind and a shared CSS layer, with accessible Radix dialogs. All workflows are local demonstrations; resource bodies and templates contain illustrative guidance that requires business review before real use.
-
-## Remark regression checks
-
-With the development server running, use `npm run test:remarks` (optionally set `BASE_URL` and `CHROMIUM_PATH`). This suite checks add/edit/reload, keyboard-opened inline remarks, cross-screen synchronization, and separate external/internal ticket replies with `crypto.randomUUID` disabled to reproduce HTTP preview browser capabilities. Record IDs fall back to `crypto.getRandomValues` on those hosts.
+`Balance pending` follows the original installment-demands-minus-receipts formula; interest-inclusive `Outstanding` is shown separately. Handover initiation also checks the full ledger balance. This preserves the earlier documented ambiguity rather than changing ledger data to conceal it. Interest is sourced from the mock ledger; CRM does not recalculate it.

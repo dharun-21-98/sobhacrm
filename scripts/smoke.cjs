@@ -1,11 +1,120 @@
-const {chromium}=require('playwright');
-(async()=>{const b=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});const page=await b.newPage({viewport:{width:1440,height:1100}});const errors=[];await page.route('https://fonts.googleapis.com/**',route=>route.abort());page.on('pageerror',e=>errors.push(e.message));for(const route of ['/workspace','/workspace/tasks','/customers','/customers/u0','/collections','/handover-registration','/handover-registration/u0','/projects','/tickets','/tickets/TK-1042','/faqs']){await page.goto('http://localhost:5173'+route);await page.waitForSelector('h1');console.log('PASS route',route);}
-await page.goto('http://localhost:5173/workspace');await page.screenshot({path:'/tmp/sobha-workspace.png',fullPage:true});
-await page.getByPlaceholder('Search customer, unit, UCN or mobile').fill('B-0902');await page.getByRole('button',{name:'B-0902 · Aditya Krishnan'}).click();await page.waitForURL('**/customers/u0');
-await page.getByPlaceholder('Add an internal remark…').fill('Browser smoke test remark');await page.getByRole('button',{name:'Add remark',exact:true}).click();await page.reload();await page.getByText('Browser smoke test remark').waitFor();console.log('PASS persisted remark');
-await page.getByLabel('Visit date and time').fill('2026-12-20T11:00');await page.locator('form').filter({has:page.getByRole('button',{name:'Schedule visit',exact:true})}).locator('select').selectOption('Handover');await page.getByRole('button',{name:'Schedule visit',exact:true}).click();await page.getByRole('button',{name:'Close',exact:true}).click();await page.goto('http://localhost:5173/handover-registration/u0');if(!await page.getByRole('button',{name:'Mark completed',exact:true}).isDisabled())throw Error('Handover guard failed');await page.getByRole('button',{name:'Upload',exact:true}).click();await page.getByLabel('Bucket',{exact:true}).selectOption('Handover');await page.getByLabel('Document type',{exact:true}).selectOption('Customer sign-off');await page.getByLabel('Upload document').setInputFiles({name:'signoff.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4 mock')});await page.getByRole('button',{name:'Mark completed',exact:true}).click();await page.getByText('Handover completed on',{exact:false}).waitFor();if(await page.getByRole('heading',{name:'Financial overview'}).count())throw Error('Financial summary not hidden');console.log('PASS handover completion document guard');
-await page.goto('http://localhost:5173/tickets/TK-1042');await page.getByRole('button',{name:'Internal',exact:true}).last().click();await page.getByPlaceholder('Add internal reply…').fill('Internal ticket smoke remark');await page.getByRole('button',{name:'Send reply'}).click();await page.goto('http://localhost:5173/customers/u0');await page.getByText('Internal ticket smoke remark').waitFor();console.log('PASS ticket consolidation');
-await page.goto('http://localhost:5173/faqs');await page.getByRole('button',{name:'Ananya Sharma Relationship Manager'}).click();await page.getByRole('button',{name:'Vikram Desai · TL'}).click();await page.getByRole('link',{name:'Reports',exact:true}).click();await page.getByRole('heading',{name:'Reports & dashboards'}).waitFor();console.log('PASS role reports');
-await page.goto('http://localhost:5173/customers');await page.getByLabel('Search list').fill('B-0902');const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Export',exact:true}).click();const download=await downloadPromise;const path=await download.path();const XLSX=require('xlsx');const wb=XLSX.readFile(path);const exported=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);if(exported.length!==1)throw Error('Filtered export contains extra rows');console.log('PASS filtered XLSX export');
+const base = process.env.BASE_URL || "http://localhost:5173";
+const { login, changePersona } = require("./helpers.cjs");
+const { chromium } = require("playwright");
+(async () => {
+  const b = await chromium.launch({
+    headless: true,
+    executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
+    args: ["--no-sandbox"],
+  });
+  const page = await b.newPage({ viewport: { width: 1440, height: 1100 } });
+  const errors = [];
+  await page.route("https://fonts.googleapis.com/**", (route) => route.abort());
+  page.on("pageerror", (e) => errors.push(e.message));
+  await login(page, "rm1", base);
+  for (const route of [
+    "/workspace",
+    "/workspace/tasks",
+    "/customers",
+    "/customers/u0",
+    "/collections",
+    "/handover-registration",
+    "/handover-registration/u0",
+    "/projects",
+    "/tickets",
+    "/tickets/TK-1042",
+    "/faqs",
+  ]) {
+    await page.goto(`${base}` + route);
+    await page.waitForSelector("h1");
+    console.log("PASS route", route);
+  }
+  await page.goto(`${base}/workspace`);
+  await page.screenshot({ path: "/tmp/sobha-workspace.png", fullPage: true });
+  await page
+    .getByPlaceholder("Search customer, unit, UCN or mobile")
+    .fill("B-0902");
+  await page.getByRole("button", { name: "B-0902 · Aditya Krishnan" }).click();
+  await page.waitForURL("**/customers/u0");
+  await page
+    .getByPlaceholder("Add an internal remark…")
+    .fill("Browser smoke test remark");
+  await page.getByRole("button", { name: "Add remark", exact: true }).click();
+  await page.reload();
+  await page.getByText("Browser smoke test remark").waitFor();
+  console.log("PASS persisted remark");
+  await page.getByLabel("Visit date and time").fill("2026-12-20T11:00");
+  await page
+    .locator("form")
+    .filter({
+      has: page.getByRole("button", { name: "Schedule visit", exact: true }),
+    })
+    .locator("select")
+    .selectOption("Handover");
+  await page
+    .getByRole("button", { name: "Schedule visit", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.goto(`${base}/handover-registration/u0`);
+  if (
+    !(await page
+      .getByRole("button", { name: "Mark completed", exact: true })
+      .isDisabled())
+  )
+    throw Error("Handover guard failed");
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
+  await page.getByLabel("Bucket", { exact: true }).selectOption("Handover");
+  await page
+    .getByLabel("Document type", { exact: true })
+    .selectOption("Customer sign-off");
+  await page.getByLabel("Upload document").setInputFiles({
+    name: "signoff.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4 mock"),
+  });
+  await page
+    .getByRole("button", { name: "Mark completed", exact: true })
+    .click();
+  await page.getByText("Handover completed on", { exact: false }).waitFor();
+  if (await page.getByRole("heading", { name: "Financial overview" }).count())
+    throw Error("Financial summary not hidden");
+  console.log("PASS handover completion document guard");
+  await page.goto(`${base}/tickets/TK-1042`);
+  await page
+    .getByRole("button", { name: "Internal", exact: true })
+    .last()
+    .click();
+  await page
+    .getByPlaceholder("Add internal reply…")
+    .fill("Internal ticket smoke remark");
+  await page.getByRole("button", { name: "Send reply" }).click();
+  await page.goto(`${base}/customers/u0`);
+  await page.getByText("Internal ticket smoke remark").waitFor();
+  console.log("PASS ticket consolidation");
+  await page.goto(`${base}/faqs`);
+  await changePersona(page, "tl1", base);
+  await page.getByRole("link", { name: "Reports", exact: true }).click();
+  await page.getByRole("heading", { name: "Reports & dashboards" }).waitFor();
+  console.log("PASS role reports");
+  await page.goto(`${base}/customers`);
+  await page.getByLabel("Search list").fill("B-0902");
+  const downloadPromise = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Export", exact: true })
+    .first()
+    .click();
+  const download = await downloadPromise;
+  const path = await download.path();
+  const XLSX = require("xlsx");
+  const wb = XLSX.readFile(path);
+  const exported = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+  if (exported.length !== 1) throw Error("Filtered export contains extra rows");
+  console.log("PASS filtered XLSX export");
 
-console.log('Browser errors:',errors);await b.close();if(errors.length)process.exit(1);})().catch(e=>{console.error(e);process.exit(1)});
+  console.log("Browser errors:", errors);
+  await b.close();
+  if (errors.length) process.exit(1);
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

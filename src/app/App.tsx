@@ -1,22 +1,2862 @@
-import { createId } from '../lib/id';
-import { RemarkForm } from '../components/RemarkForm';
-import {useState} from 'react';import {NavLink,Routes,Route,Navigate,useNavigate,useParams,useSearchParams,Link} from 'react-router-dom';import {LayoutDashboard,Users,Wallet,KeyRound,Building2,BookOpen,Ticket as TicketIcon,BarChart3,Search,Bell,ChevronDown,ArrowUpRight,CalendarDays,PanelLeftClose,Plus,Check,FileText} from 'lucide-react';import {BarChart,Bar,ResponsiveContainer,Tooltip,XAxis} from 'recharts';import ReactMarkdown from 'react-markdown';import {useStore} from '../data/repo';import {users,projects,Unit,iso,Doc} from '../data/seed';import {finance,segment,scope,latest,aggregate,handoverStage,canInitiate,month} from '../data/rules';import {config} from '../data/config';import {money,date,placeholderPdf} from '../lib';import {Chip,Kpi,Modal,Select,Toolbar,DataList,Assumptions} from '../components/ui';
-const paths=['/workspace','/customers','/collections','/handover-registration','/projects','/faqs','/tickets','/reports'];const icons=[LayoutDashboard,Users,Wallet,KeyRound,Building2,BookOpen,TicketIcon,BarChart3];
-function useData(){const s=useStore();const user=users.find(u=>u.id===s.userId)!;return {...s,user,units:scope(s.db,s.userId),tasks:s.db.tasks.filter(t=>user.role!=='RM'||t.assignedRmId===user.id)}}
-export default function App(){const {db,user,units,setUser,reset,update}=useData();const [collapsed,C]=useState(false),[query,Q]=useState(''),[menu,M]=useState(false),[bell,B]=useState(false);const nav=useNavigate();const matches=units.filter(u=>`${u.unitNo} ${u.name} ${u.code} ${u.ucn} ${u.mobile}`.toLowerCase().includes(query.toLowerCase())).slice(0,6);const scheduled=db.visits.filter(v=>units.some(u=>u.id===v.unitId)&&v.status==='Scheduled'&&new Date(v.date)>=new Date()).length;return <div className={`shell ${collapsed?'collapsed':''}`}><aside><div className="brand">SOBHA<span>PASSION AT WORK</span></div><small className="nav-label">RELATIONSHIP MANAGER</small><nav>{config.role_permission[user.role as keyof typeof config.role_permission].map((name,i)=>{const Icon=icons[i];return <NavLink key={name} to={paths[i]}><Icon size={19}/><span>{name}</span></NavLink>})}</nav><div className="sidebar-bottom"><div className="demo-dot"/> <span>Demo workspace</span><button aria-label="Collapse sidebar" className="icon" onClick={()=>C(!collapsed)}><PanelLeftClose size={18}/></button></div></aside><div className="main"><header><div className="global-search"><Search size={17}/><input placeholder="Search customer, unit, UCN or mobile" value={query} onChange={e=>Q(e.target.value)}/><kbd>⌘ K</kbd>{query&&<div className="dropdown search-results">{matches.length?matches.map(u=><button key={u.id} onClick={()=>{nav(`/customers/${u.id}`);Q('')}}><b>{u.unitNo} · {u.name}</b><small>{projects[u.projectId].name} · {u.code}</small></button>):<p>No matching mapped units</p>}</div>}</div><button className="visit-chip" onClick={()=>nav('/customers?visit=Scheduled')}><CalendarDays size={16}/>{scheduled} Site Visits Scheduled</button><div className="relative"><button aria-label="Notifications" className="icon bell" onClick={()=>B(!bell)}><Bell size={20}/>{db.notifications.some(n=>!n.isRead)&&<i/>}</button>{bell&&<div className="dropdown notifications"><h3>Notifications</h3>{db.notifications.map(n=><button key={n.id} onClick={()=>{update(d=>{d.notifications.find(x=>x.id===n.id)!.isRead=true});nav(n.link);B(false)}}>{!n.isRead&&'● '}{n.text}</button>)}</div>}</div><div className="relative"><button className="user" onClick={()=>M(!menu)}><span className="avatar">{user.name.split(' ').map(n=>n[0]).join('')}</span><span>{user.name}<small>{user.role==='RM'?'Relationship Manager':user.role}</small></span><ChevronDown size={14}/></button>{menu&&<div className="dropdown user-menu"><h4>Switch demo role / user</h4>{users.map(u=><button key={u.id} onClick={()=>{setUser(u.id);M(false);nav('/workspace')}}>{u.name} · {u.role}</button>)}<hr/><button onClick={()=>{reset();M(false)}}>Reset demo data</button></div>}</div></header><main><Routes><Route path="/workspace" element={<Workspace/>}/><Route path="/workspace/tasks" element={<Tasks/>}/><Route path="/customers" element={<Directory/>}/><Route path="/customers/:unitId" element={<Detail/>}/><Route path="/collections" element={<Collections/>}/><Route path="/handover-registration" element={<Handover/>}/><Route path="/handover-registration/:unitId" element={<Detail handover/>}/><Route path="/projects" element={<Projects/>}/><Route path="/tickets" element={<Tickets/>}/><Route path="/tickets/:ticketId" element={<Tickets/>}/><Route path="/faqs" element={<Faqs/>}/><Route path="/reports" element={user.role==='RM'?<Navigate to="/workspace"/>:<><Heading title="Reports & dashboards" subtitle="Scope to be confirmed · Open questions #69, #74–75"/><div className="panel">Team reporting will be available after scope confirmation.</div></>}/><Route path="*" element={<Navigate to="/workspace"/>}/></Routes><Assumptions/><div className="page-footer">SOBHA RELATIONSHIP MANAGEMENT <span>Prototype · Simulated data · No live integrations</span></div></main></div></div>}
-function Heading({title,subtitle,action}:{title:string;subtitle?:string;action?:React.ReactNode}){return <div className="heading"><div><div className="eyebrow">YOUR PORTFOLIO, CONNECTED</div><h1>{title}</h1><p>{subtitle}</p></div>{action||<span className="date">{date(iso())}</span>}</div>}
-function Section({title,to,children}:{title:string;to?:string;children:React.ReactNode}){return <section className="panel"><div className="section-heading"><h2>{title}</h2>{to&&<Link to={to}>View all <ArrowUpRight size={15}/></Link>}</div>{children}</section>}
-function Workspace(){const {db,units,user,tasks}=useData();const total=aggregate(db,units),tickets=db.tickets.filter(t=>units.some(u=>u.id===t.unitId)),ho=units.filter(u=>db.handovers[u.id]?.status==='Appointment Booked'&&month(db.handovers[u.id].date)).length,reg=units.filter(u=>db.registrations[u.id]?.status==='Completed'&&month(db.registrations[u.id].date)).length;const [tab,T]=useState('Handover');return <><Heading title={`Good morning, ${user.name.split(' ')[0]}`} subtitle="Here's what needs your attention today. Let's make every interaction count."/><div className="welcome-strip"><span><span className="live-dot"/> Your workspace is up to date</span><span>{units.length} managed accounts · {projects.length} projects</span></div><div className="dashboard-grid"><Section title="Collections overview" to="/collections"><div className="collection-hero"><div><span className="muted">MONTHLY TARGET ACHIEVEMENT</span><strong>{(total.achieved/config.collectionTarget*100).toFixed(0)}<small>%</small></strong><p><b>{money(total.achieved)}</b> of {money(config.collectionTarget)}</p></div><div className="round-icon"><Wallet size={27}/></div></div><div className="progress"><i style={{width:`${total.achieved/config.collectionTarget*100}%`}}/></div><div className="overdue"><span>Total overdue <Chip tone="red">Needs attention</Chip></span><b>{money(total.overdue)}</b></div><p className="source">D365 · As of {date(new Date(Date.now()-86400000).toISOString())} (D-1)</p><MiniList units={[...units].sort((a,b)=>finance(db,b).overdue-finance(db,a).overdue).slice(0,5)} mode="finance"/></Section><Section title="Tickets" to="/tickets"><div className="split-stats"><Kpi label="Open tickets" value={tickets.filter(t=>t.status==='Open').length}/><Kpi label="High priority" value={tickets.filter(t=>t.status==='Open'&&t.priority==='High').length}/></div>{tickets.slice(0,5).map(t=><Link className="preview-row" key={t.id} to={`/tickets/${t.id}`}><span className="ticket-symbol"><TicketIcon size={18}/></span><div><b>{t.subject}</b><small>{t.id} · {units.find(u=>u.id===t.unitId)?.unitNo} · {units.find(u=>u.id===t.unitId)?.name}</small></div><Chip>{t.priority||'Unassigned'}</Chip><Chip>{t.status}</Chip></Link>)}</Section><Section title="Handover & registration" to="/handover-registration"><div className="split-stats"><Kpi label="Handover scheduled" value={`${ho} / ${config.handoverTarget}`} source="CMS / CRM" progress={ho/config.handoverTarget*100}/><Kpi label="Registration completed" value={`${reg} / ${config.registrationTarget}`} source="CMS / CRM" progress={reg/config.registrationTarget*100}/></div><Tabs values={['Handover','Registration']} value={tab} set={T}/><MiniList units={units.filter(u=>tab==='Handover'?u.ready:!!projects[u.projectId].oc).slice(0,5)} mode={tab}/></Section><Section title="My tasks" to="/workspace/tasks"><div className="split-stats"><Kpi label="Open tasks" value={tasks.filter(t=>t.status==='Open').length}/><Kpi label="Completed" value={tasks.filter(t=>t.status==='Closed').length}/></div>{tasks.slice(0,5).map(t=><TaskRow key={t.id} task={t}/>)}</Section></div></>}
-function Tabs({values,value,set}:{values:string[];value:string;set:(s:string)=>void}){return <div className="tabs">{values.map(v=><button className={value===v?'active':''} key={v} onClick={()=>set(v)}>{v}</button>)}</div>}
-function MiniList({units,mode}:{units:Unit[];mode:string}){const {db}=useData();return <div>{units.map(u=><Link key={u.id} className="preview-row" to={`${mode==='finance'?'/customers':'/handover-registration'}/${u.id}`}><span className="unit-icon">{u.wing}</span><div><b>{u.unitNo} <span className="subtle">· {u.name}</span></b><small>{projects[u.projectId].name} · <span className={`seg seg${segment(db,u)}`}>Seg {segment(db,u)}</span> {u.tags[0]}</small></div>{mode==='finance'?<b className="danger">{money(finance(db,u).overdue)}</b>:<Chip>{mode==='Handover'?handoverStage(db,u):db.registrations[u.id]?.status||'Pending'}</Chip>}</Link>)}</div>}
-function TaskRow({task:t}:{task:ReturnType<typeof useData>['db']['tasks'][number]}){const {update,db}=useData();return <div className="preview-row"><input aria-label={`Complete ${t.title}`} type="checkbox" checked={t.status==='Closed'} onChange={()=>update(d=>{d.tasks.find(x=>x.id===t.id)!.status=t.status==='Closed'?'Open':'Closed'})}/><div><b className={t.status==='Closed'?'strike':''}>{t.title}</b><small>{t.givenBy} · Due {date(t.dueDate)}</small></div>{t.unitId?<Link className="chip" to={`/customers/${t.unitId}`}>{db.units.find(u=>u.id===t.unitId)?.unitNo}</Link>:<Chip>N/A</Chip>}</div>}
-function Tasks(){const {db,tasks}=useData();const [q,Q]=useState(''),[status,S]=useState('All'),[priority,P]=useState(''),[given,G]=useState('');const rows=tasks.filter(t=>(status==='All'||t.status===status)&&(!priority||t.priority===priority)&&(!given||t.givenBy===given)&&`${t.title} ${t.description}`.toLowerCase().includes(q.toLowerCase())).map(t=>({_id:t.id,Task:t.title,Description:t.description,'Given by':t.givenBy,Priority:t.priority,Status:t.status,Created:date(t.date),Due:date(t.dueDate)}));return <><Heading title="My tasks" subtitle="Your follow-ups, priorities and next steps." action={<Link to="/workspace">← Back to Workspace</Link>}/><div className="kpi-grid">{['All','Open','Closed'].map(s=><Kpi key={s} label={s==='All'?'Total':s} value={tasks.filter(t=>s==='All'||t.status===s).length}/>)}</div><Tabs values={['All','Open','Closed']} value={status} set={S}/><Toolbar search={q} setSearch={Q}><Select value={priority} onChange={P} options={['High','Medium','Low']} label="Priority"/><Select value={given} onChange={G} options={[...new Set(tasks.map(t=>t.givenBy))]} label="Given by"/></Toolbar><DataList name="Tasks" rows={rows} extra={r=><TaskRow task={db.tasks.find(t=>t.id===r._id)!}/>}/></>}
-function Directory(){const {db,units,user,columns,setColumns}=useData();const [params]=useSearchParams();const [q,Q]=useState(''),[seg,S]=useState(''),[tag,T]=useState(''),[status,St]=useState('Active'),[ups,U]=useState(''),[visit,V]=useState(params.get('visit')||''),[rm,R]=useState(''),[cols,C]=useState(false);const nav=useNavigate();const reset=()=>{Q('');S('');T('');St('');U('');V('');R('')};const filtered=units.filter(u=>(!seg||String(segment(db,u))===seg)&&(!tag||u.tags.includes(tag))&&(!status||u.status===status)&&(!rm||u.rmIds.includes(rm))&&(!ups||db.upsells.some(x=>x.unitId===u.id&&x.category===ups))&&(!visit||db.visits.some(x=>x.unitId===u.id&&x.status===visit))&&`${u.unitNo} ${u.name} ${u.code}`.toLowerCase().includes(q.toLowerCase()));const rows=filtered.map(u=>({_id:u.id,'Customer ID':u.code,Unit:`${u.unitNo} · ${projects[u.projectId].name}`,Customer:u.name,Segment:`Segment ${segment(db,u)}`,Tags:u.tags.join(', '),'Unit Status':u.status,Upsell:db.upsells.filter(x=>x.unitId===u.id).map(x=>`${x.category} · ${x.status}`).join(', '),'Site Visit':db.visits.filter(x=>x.unitId===u.id).map(x=>`${date(x.date)} · ${x.category} · ${x.status}`).join(', '),'Latest Remark':latest(db,u.id)?.text||'—','Due status':finance(db,u).age?`Overdue ${finance(db,u).age} days`:'Due in 10 days'}));return <><Heading title="Customer 360" subtitle="A complete view of your customers. Every relationship, in one place."/><div className="summary-grid"><Section title="Customer segments"><p className="muted">Managed accounts: {units.length}</p>{[1,2,3,4].map(n=>{const members=units.filter(u=>segment(db,u)===n);return <button className="segment-row" key={n} onClick={()=>S(String(n))}><Chip tone={`seg${n}`}>Segment {n}</Chip><div className="progress"><i style={{width:`${members.length/units.length*100}%`}}/></div><b>{members.length}</b><small>{(members.length/units.length*100).toFixed(0)}% · {money(aggregate(db,members).overdue)}</small></button>})}</Section><Section title="Behavioral tags">{config.tags.map(t=><button className="count-row" key={t} onClick={()=>T(t)}><span>{t}</span><b>{units.filter(u=>u.tags.includes(t)).length}</b></button>)}</Section><Section title="Site visits requested">{['Pre-inspection','Handover','Site Visit'].map(c=><button className="count-row" key={c} onClick={()=>V('Requested')}><span>{c}</span><b>{db.visits.filter(v=>v.category===c&&v.status==='Requested'&&units.some(u=>u.id===v.unitId)).length}</b></button>)}<div className="card-note"><CalendarDays size={18}/> Turn requests into meaningful visits.</div></Section><Section title="Unit status summary">{['Active','Cancelled','Shifted','Reassigned'].map(s=><button className="count-row" key={s} onClick={()=>St(s)}><Chip>{s}</Chip><b>{units.filter(u=>u.status===s).length}</b></button>)}</Section></div><Toolbar search={q} setSearch={Q} reset={reset}><Select value={seg} onChange={S} options={['1','2','3','4']} label="Segment"/><Select value={tag} onChange={T} options={config.tags} label="Tag"/><Select value={status} onChange={St} options={['Active','Cancelled','Shifted','Reassigned']} label="Unit status"/><Select value={ups} onChange={U} options={config.upsells} label="Upsell"/><Select value={visit} onChange={V} options={['Requested','Scheduled','Completed']} label="Site visit"/>{user.role!=='RM'&&<Select value={rm} onChange={R} options={users.filter(u=>u.role==='RM').map(u=>u.id)} label="RM"/>}</Toolbar><div className="active-filters">{[seg&&`Segment ${seg}`,tag,status,ups,visit].map((x,i)=>x?<button key={i} onClick={()=>[S,T,St,U,V][i]('')}>{x} ×</button>:null)}<button onClick={()=>C(!cols)}>Columns ({columns.length}/10)</button></div>{cols&&<div className="column-options">{['Customer ID','Unit','Customer','Segment','Tags','Unit Status','Upsell','Site Visit','Latest Remark','Due status'].map(c=><label key={c}><input type="checkbox" checked={columns.includes(c)} onChange={()=>setColumns(columns.includes(c)?columns.filter(x=>x!==c):[...columns,c])}/>{c}</label>)}</div>}<DataList name="Customer directory" rows={rows} columns={columns} onRow={r=>nav(`/customers/${r._id}`)}/></>}
-function Collections(){const {db,units,user}=useData();const [q,Q]=useState(''),[seg,S]=useState(''),[tag,T]=useState(''),[quick,F]=useState(''),[remark,R]=useState(''),[rm,RM]=useState('');const nav=useNavigate();const a=aggregate(db,units);const filtered=units.filter(u=>{const f=finance(db,u);return `${u.name} ${u.unitNo}`.toLowerCase().includes(q.toLowerCase())&&(!seg||segment(db,u)===+seg)&&(!tag||u.tags.includes(tag))&&(!rm||u.rmIds.includes(rm))&&(!quick||(quick==='Overdue > Rs 5 L'?f.overdue>500000:quick==='Interest > Rs 5 L'?f.interest>500000:f.interest>=100))});const pc=aggregate(db,units.filter(u=>u.tags.includes('Possible Cancellation')));return <><Heading title="Collections" subtitle="Track collections, resolve overdue balances and keep payments moving."/><div className="kpi-grid four"><Kpi label="Target vs achieved" value={`${(a.achieved/config.collectionTarget*100).toFixed(0)}%`} sub={`${money(a.achieved)} of ${money(config.collectionTarget)}`} source="D365 / CMS" progress={a.achieved/config.collectionTarget*100}/>{[['Total outstanding',a.outstanding],['Overdue',a.overdue],['Due this month',a.dueMonth]].map(([l,v])=><Kpi key={l} label={String(l)} value={money(Number(v))} source="D365"/>)}</div><h3>Interest <span className="muted">· Calculated in D365; lines &lt; Rs 100 hidden</span></h3><div className="kpi-grid four">{[['Charged',a.interest],['Collected',a.interestCollected],['To be received',a.interest-a.interestCollected-a.waived],['Waived off',a.waived],['PC outstanding',pc.outstanding],['PC collected',pc.achieved]].map(([l,v])=><Kpi key={l} label={String(l)} value={money(Number(v))} source="D365"/>)}</div><Toolbar search={q} setSearch={Q} reset={()=>{Q('');S('');T('');F('');RM('')}}><Select value={seg} onChange={S} options={['1','2','3','4']} label="Segment"/><Select value={tag} onChange={T} options={config.tags} label="Tag"/>{user.role!=='RM'&&<Select value={rm} onChange={RM} options={['rm1','rm2','rm3','rm4']} label="RM"/>}</Toolbar><div className="quick-filters">{['Overdue > Rs 5 L','Interest > Rs 5 L','Interest applied'].map(f=><button className={f===quick?'selected':''} key={f} onClick={()=>F(f===quick?'':f)}>{f}</button>)}</div><DataList name="Collections" rows={filtered.map(u=>{const f=finance(db,u);return {_id:u.id,Unit:u.unitNo,Customer:u.name,Segment:segment(db,u),Tag:u.tags.join(', '),Outstanding:money(f.outstanding),Overdue:`${money(f.overdue)} · ${f.age} days`,'Due this month':money(f.dueMonth),'Interest charged':f.interest?money(f.interest):'','Interest waived':money(f.waived),'Latest Remark':latest(db,u.id)?.text||'—'}})} onRow={r=>nav(`/customers/${r._id}`)} extra={r=><button onClick={()=>R(String(r._id))}>+ Remark</button>}/>{remark&&<Modal title="Collection remark" close={()=>R('')}><RemarkForm unitId={remark} area="Collections" done={()=>R('')}/></Modal>}</>}
-function Detail({handover=false}:{handover?:boolean}){const {unitId}=useParams();const {db,units,update,user}=useData();const u=units.find(x=>x.id===unitId);const [tab,T]=useState('Overview'),[modal,M]=useState(''),[area,A]=useState(''),[note,N]=useState(''),[visitDate,VD]=useState(''),[category,VC]=useState('Site Visit'),[ups,U]=useState(config.upsells[0]),[bucket,B]=useState('General'),[docType,DT]=useState('RM upload'),[tag,Tag]=useState(config.tags[0]);if(!u)return <div className="empty">This unit is outside your portfolio or does not exist. <Link to="/customers">Back to customers</Link></div>;const f=finance(db,u),stage=handoverStage(db,u),oc=!!projects[u.projectId].oc;const complete=stage==='Completed';const docs=db.documents.filter(d=>d.unitId===u.id);const remarks=db.remarks.filter(r=>r.unitId===u.id&&r.area!=='External'&&(!area||r.area===area)).sort((a,b)=>b.date.localeCompare(a.date));const upload=async(file:File)=>{const url=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=reject;reader.readAsDataURL(file)});update(d=>{d.documents.push({id:createId(),unitId:u.id,name:file.name,bucket,type:docType,date:iso(),url});if(docType==='TDS receipt')d.units.find(x=>x.id===u.id)!.tds=true});M('')};return <><div className="breadcrumbs"><Link to={handover?'/handover-registration':'/customers'}>← {handover?'Handover & registration':'Customer 360'}</Link> / {u.unitNo}</div><div className="profile panel"><div className="profile-avatar">{u.name.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div className="profile-main"><div className="eyebrow">{u.code} · {u.ucn}</div><h1>{u.name}</h1><p>Co-applicant: {u.coApplicant} · {u.city}, {u.country}</p><p>{u.mobile} · {u.email} <button className="text-button" onClick={()=>M('Profile correction (D365)')}>Report data issue</button></p><div className="chips"><span title="System-derived"><Chip>Segment {segment(db,u)}</Chip></span>{u.tags.map(t=><button className="chip" key={t} onClick={()=>update(d=>{d.units.find(x=>x.id===u.id)!.tags=u.tags.filter(x=>x!==t)})}>{t} ×</button>)}<button className="text-button" onClick={()=>M('Tag')}>+ Tag</button></div></div><div className="unit-profile"><h2>{u.unitNo} <Chip>{u.ready?'Handover Ready':'Under Construction'}</Chip></h2><p>{projects[u.projectId].name} · Tower {u.wing}</p><p>3BHK · 1,845 sq ft · {projects[u.projectId].location}</p><Link to={handover?`/customers/${u.id}`:`/handover-registration/${u.id}`}>{handover?'Open Customer Detail':'Handover & registration'} <ArrowUpRight size={13}/></Link></div></div>{db.visits.filter(v=>v.unitId===u.id&&v.status==='Scheduled'&&Date.parse(v.date)>=Date.now()).map(v=><div className="visit-banner" key={v.id}><CalendarDays size={18}/> Next visit: {date(v.date,true)} · {v.category} · confirmed by RM</div>)}{!handover&&<Tabs values={['Overview','Financials','Documents','Remarks','Timeline']} value={tab} set={T}/>}<div className={handover?'':'detail-grid'}><div>{(!handover||!complete)&&(tab==='Overview'||tab==='Financials'||handover)&&<Section title="Financial overview"><div className="kpi-grid four">{[['Agreement value',u.agreement],['Total demanded',f.demanded],['Total collected',f.collected],['Balance pending',f.balance]].map(([l,v])=><Kpi key={l} label={String(l)} value={money(Number(v))} source="D365"/>)}</div><button onClick={()=>M('Statement')}><FileText size={16}/>Provisional statement</button>{!handover&&<><h3>Payment milestones</h3><DataList name="Milestones" rows={db.ledger.filter(t=>t.unitId===u.id&&t.debit).map((t,i)=>({Milestone:t.type==='Interest'?'Interest':`Construction-linked demand ${i+1}`,Demanded:date(t.date),Due:date(t.dueDate),Amount:money(t.debit),Paid:money(Math.min(f.collected,t.debit)),Status:f.balance===0?'Paid':'Part-paid'}))}/><p className="muted">Upcoming: next three construction-linked milestones (estimated)</p>{['Floor slabs','MEP & finishing','Possession'].map((x,i)=><p key={x}>{x} · {date(new Date(Date.now()+(i+1)*30*86400000).toISOString())} · Upcoming</p>)}</>}</Section>}{handover&&<><Section title="Handover timeline">{complete?<div className="success"><Check size={20}/>Handover completed on {date(db.handovers[u.id].date)}</div>:<><div className="stepper">{['Handover Ready','Initiated','Appointment Booked','Completed'].map((s,i)=>{const current=['Handover Ready','Initiated','Appointment Booked','Completed'].indexOf(stage);return <div key={s} className={i<=current?'done':''}><span>{i+1}</span><b>{s}</b><small>{i<current?'Completed':i===current?'In Progress':'Pending'}</small><small>{i===0?date(u.readyDate):i<=current?date(db.handovers[u.id]?.date):'—'}</small></div>})}</div><div className="form-actions"><button onClick={()=>{const error=canInitiate(db,u);if(error)M(error);else update(d=>{d.handovers[u.id]={status:'Initiated',date:iso()}})}} disabled={stage!=='Handover Ready'}>Initiate handover</button><Link to={`/customers/${u.id}`}>Schedule in Customer Detail →</Link><button className="primary" disabled={stage!=='Appointment Booked'||!docs.some(d=>d.bucket==='Handover'&&d.type==='Customer sign-off')} onClick={()=>update(d=>{d.handovers[u.id]={status:'Completed',date:iso()}})}>Mark completed</button></div><p className="muted">Completion requires a Customer sign-off upload in the Handover bucket.</p></>}</Section><Section title="Registration timeline">{!oc?<div className="inactive"><Chip>Inactive</Chip> Awaiting project OC receipt. Registration actions are unavailable.</div>:<><div className="stepper"><div className="done"><span>1</span><b>Details Collected</b><small>{db.registrations[u.id]?date(db.registrations[u.id].date):'Pending'}</small></div><div className={db.registrations[u.id]?.status==='Completed'?'done':''}><span>2</span><b>Completed</b><small>{db.registrations[u.id]?.status==='Completed'?date(db.registrations[u.id].date):'Pending'}</small></div></div><button disabled={!!db.registrations[u.id]} onClick={()=>update(d=>{d.registrations[u.id]={status:'Details Collected',date:iso()}})}>Mark details collected</button> <button disabled={!db.registrations[u.id]||db.registrations[u.id].status==='Completed'||!docs.some(d=>d.bucket==='Registration'&&d.type==='Sale deed')} onClick={()=>update(d=>{d.registrations[u.id]={status:'Completed',date:iso()}})}>Complete registration</button><p className="muted">An uploaded Sale deed in the Registration bucket is required.</p></>}</Section></>}{(handover||tab==='Documents'||tab==='Overview')&&<Section title="Unit document repository"><div className="form-actions"><span className="muted">Executed documents & source records</span><button onClick={()=>M('Upload')}><Plus size={14}/>Upload</button></div>{['Agreement for Sale','Cost Sheet & Payment Schedule','Customer Allotment Letter',...(u.tds?['TDS Receipt']:[])].map((title,i)=><div className="document-row" key={title}><FileText size={18}/><b>{title}</b><Chip>{i===1?'D365':i===3?'CRM / D365':'SharePoint'}</Chip><button onClick={()=>window.open(placeholderPdf(title),'_blank','noopener')}>View / Download</button></div>)}{!u.tds&&<p className="muted">TDS: Not received – TDS currently arrives by email</p>}{docs.map(d=><div className="document-row" key={d.id}><FileText size={18}/><span>{d.name}<small>{d.bucket} · {d.type} · {user.name} · {date(d.date)}</small></span><a href={d.url||placeholderPdf(d.name)} download={d.name}>Download</a></div>)}{handover&&<><h3>Templates & system letters</h3>{['Pre-inspection checklist','Possession letter','Handover intimation letter','No-dues certificate'].map(t=><div className="document-row" key={t}><FileText size={18}/><b>{t}</b><button onClick={()=>M(t)}>Open / Share</button></div>)}</>}</Section>}{!handover&&(tab==='Remarks'||tab==='Overview')&&<Section title="Consolidated remarks"><Select value={area} onChange={A} options={['Unit','Collections','Handover','Registration','Ticket']} label="All areas"/>{remarks.length?remarks.map(r=><div key={r.id} className="remark"><div><b>{r.author}</b> <Chip>{r.area}{r.ticketId&&` · ${r.ticketId}`}</Chip> {r.role!=='RM'&&<Chip>Supervisor</Chip>}<small>{r.role} · {date(r.date,true)}</small></div><p>{r.text}</p></div>):<div className="empty">No remarks yet.</div>}<RemarkForm unitId={u.id}/></Section>}{!handover&&(tab==='Timeline'||tab==='Overview')&&<Section title="Activity timeline"><Chip>Placeholder stages</Chip>{[['Booking',u.bookingDate],['Agreement execution',u.agreementDate],['Foundation',u.agreementDate],['Floor slabs',u.readyDate],['Handover',db.handovers[u.id]?.date],['Registration',db.registrations[u.id]?.date]].map(([l,d])=><div className="timeline-row" key={l}><i/><b>{l}</b><span>{d?date(d):'Pending'}</span></div>)}</Section>}</div>{!handover&&<div><Section title="Site visit scheduler"><div className="split-stats"><Kpi label="Requests" value={db.visits.filter(v=>v.unitId===u.id&&v.status==='Requested').length}/><Kpi label="Completed" value={db.visits.filter(v=>v.unitId===u.id&&v.status==='Completed').length}/></div>{db.visits.filter(v=>v.unitId===u.id).map(v=><div className="document-row" key={v.id}><div><b>{v.category}</b><small>{date(v.date,true)} · {v.status}</small></div>{v.status==='Requested'&&<button onClick={()=>{VC(v.category);M('Schedule')}}>Schedule</button>}</div>)}<form onSubmit={e=>{e.preventDefault();update(d=>{const request=d.visits.find(v=>v.unitId===u.id&&v.status==='Requested'&&v.category===category);if(request){request.status='Scheduled';request.date=new Date(visitDate).toISOString();request.note=note}else d.visits.push({id:createId(),unitId:u.id,category,status:'Scheduled',date:new Date(visitDate).toISOString(),note});if(category==='Handover')d.handovers[u.id]={status:'Appointment Booked',date:new Date(visitDate).toISOString()}});VD('');N('');M('Visit scheduled successfully')}}><h3>Schedule a visit</h3><label>Date & time<input required aria-label="Visit date and time" type="datetime-local" min={new Date().toISOString().slice(0,16)} value={visitDate} onChange={e=>VD(e.target.value)}/></label><label>Category<Select value={category} onChange={VC} options={['Site Visit','Handover','Pre-inspection']}/></label><textarea value={note} onChange={e=>N(e.target.value)} placeholder="Visit note"/><button className="primary full">Schedule visit</button></form></Section><Section title="Upsell requests">{db.upsells.filter(x=>x.unitId===u.id).map(x=><div className="remark" key={x.id}><b>{x.category}</b> <Chip>{x.status}</Chip><small>{x.id} · {x.source} · {date(x.date)}</small></div>)}{!db.upsells.some(x=>x.unitId===u.id)&&<p>NA</p>}<Select value={ups} onChange={U} options={config.upsells}/><button onClick={()=>update(d=>d.upsells.push({id:`UP-${Date.now()}`,unitId:u.id,category:ups,status:'Initiated',source:'RM',date:iso()}))}>+ Create request</button></Section><Section title="Customer tickets">{db.tickets.filter(t=>t.unitId===u.id).map(t=><Link className="document-row" key={t.id} to={`/tickets/${t.id}`}><div><b>{t.subject}</b><small>{t.id} · {t.priority||'Unassigned'}</small></div><Chip>{t.status}</Chip></Link>)}<button onClick={()=>M('Raise ticket')}>+ Raise ticket</button></Section></div>}</div>{modal&&<Modal title={modal==='Statement'?'Provisional statement':modal} close={()=>M('')}>{modal==='Tag'?<><Select value={tag} onChange={Tag} options={config.tags}/><button onClick={()=>{update(d=>{const unit=d.units.find(x=>x.id===u.id)!;if(!unit.tags.includes(tag))unit.tags.push(tag)});M('')}}>Add tag</button></>:modal==='Upload'?<><label>Bucket<Select label="Bucket" value={bucket} onChange={B} options={['General','Handover','Registration']}/></label><label>Document type<Select label="Document type" value={docType} onChange={DT} options={['RM upload','Customer sign-off','Sale deed','TDS receipt']}/></label><input aria-label="Upload document" type="file" accept=".pdf,.doc,.docx,.png,.jpg" onChange={e=>{const file=e.target.files?.[0];if(file){if(file.size>2000000){M('Please choose a file below 2 MB for this local prototype.');return}void upload(file)}}}/></>:modal==='Statement'?<><p>Generated on demand – not stored</p><h3>{u.name} · {u.unitNo}</h3><DataList name="Account statement" rows={db.ledger.filter(t=>t.unitId===u.id&&!(t.type==='Interest'&&t.debit<100)).map((t,i,arr)=>({Date:date(t.date),Particulars:t.type,Debit:money(t.debit),Credit:money(t.credit),Balance:money(arr.slice(0,i+1).reduce((s,t)=>s+t.debit-t.credit,0))}))}/><button onClick={()=>window.print()}>Print / Download PDF</button></>:modal==='Raise ticket'||modal==='Profile correction (D365)'?<RaiseTicket unitId={u.id} internal={modal!=='Raise ticket'} close={()=>M('')}/>:['Pre-inspection checklist','Possession letter','Handover intimation letter','No-dues certificate'].includes(modal)?<Template title={modal} unit={u}/>:<p>{modal==='Schedule'?'Choose date, time and category in the scheduler form.':modal}</p>}</Modal>}</>}
-function Handover(){const {db,units,user}=useData();const [tab,T]=useState('Handover'),[q,Q]=useState(''),[status,S]=useState(''),[ready,R]=useState(false),[remark,RM]=useState(''),[template,Temp]=useState(''),[selected,U]=useState(units[0]?.id||''),[rm,Rm]=useState('');const nav=useNavigate();const filtered=units.filter(u=>(tab==='Handover'||!!projects[u.projectId].oc)&&(!rm||u.rmIds.includes(rm))&&(!ready||(u.ready&&!db.handovers[u.id]))&&`${u.name} ${u.unitNo} ${projects[u.projectId].name}`.toLowerCase().includes(q.toLowerCase())&&(!status||(tab==='Handover'?handoverStage(db,u):db.registrations[u.id]?.status||'Pending')===status));return <><Heading title="Handover & registration" subtitle="From ready to move-in. Make every milestone seamless."/><div className="kpi-grid four"><Kpi label="Scheduled handovers" value={units.filter(u=>db.handovers[u.id]?.status==='Appointment Booked'&&Date.parse(db.handovers[u.id].date)>=Date.now()).length}/><Kpi label="Initiated registrations" value={units.filter(u=>!!db.registrations[u.id]&&db.registrations[u.id].status!=='Completed').length}/><Kpi label="Pre-handover inspections" value={db.visits.filter(v=>v.category==='Pre-inspection'&&v.status==='Scheduled'&&Date.parse(v.date)>=Date.now()&&units.some(u=>u.id===v.unitId)).length}/><button className={`highlight-kpi ${ready?'selected':''}`} onClick={()=>R(!ready)}><Kpi label="Ready – Handover Not Initiated" value={units.filter(u=>u.ready&&!db.handovers[u.id]).length} source="CMS / CRM"/></button></div><Tabs values={['Handover','Registration']} value={tab} set={v=>{T(v);S('');R(false)}}/><Toolbar search={q} setSearch={Q} reset={()=>{Q('');S('');R(false);Rm('')}}><Select label="Status" value={status} onChange={S} options={tab==='Handover'?['Handover Ready','Initiated','Appointment Booked','Completed']:['Pending','Details Collected','Completed']}/>{user.role!=='RM'&&<Select label="RM" value={rm} onChange={Rm} options={['rm1','rm2','rm3','rm4']}/>}</Toolbar><DataList name={`${tab} list`} rows={filtered.map(u=>({_id:u.id,Unit:u.unitNo,Customer:u.name,Project:`${projects[u.projectId].name} · T-${u.wing}`,Status:tab==='Handover'?handoverStage(db,u):db.registrations[u.id]?.status||'Pending',Remarks:latest(db,u.id,tab)?.text||'—'}))} onRow={r=>nav(`/handover-registration/${r._id}`)} extra={r=><button onClick={()=>RM(String(r._id))}>+ Remark</button>}/><Section title="Document repository"><label>Pre-fill for unit<select value={selected} onChange={e=>U(e.target.value)}>{units.map(u=><option key={u.id} value={u.id}>{u.unitNo} · {u.name}</option>)}</select></label>{['Pre-inspection checklist','Possession letter','Home automation – Neopolis T-A/T-B','Registration form','Registration letter'].map(t=><div className="document-row" key={t}><FileText size={18}/><b>{t}</b><Chip>CMS</Chip><button onClick={()=>Temp(t)}>Open template</button></div>)}</Section>{remark&&<Modal title={`${tab} remark`} close={()=>RM('')}><RemarkForm unitId={remark} area={tab} done={()=>RM('')}/></Modal>}{template&&<Modal title={template} close={()=>Temp('')}><Template title={template} unit={units.find(u=>u.id===selected)!}/></Modal>}</>}
-function Template({title,unit}:{title:string;unit:Unit}){const [keys,K]=useState('2'),[shared,S]=useState(false);return <><p className="muted">Generated on demand – not stored</p><div className="letter"><h2>SOBHA</h2><h3>{title}</h3><p>Customer: {unit.name}</p><p>Unit: {unit.unitNo} · Tower {unit.wing} · {projects[unit.projectId].name}</p><p>Agreement date: {date(unit.agreementDate)}</p><label>Number of keys<input type="number" min="0" value={keys} onChange={e=>K(e.target.value)}/></label><p>Date: {date(iso())}</p><p>Customer signature: ____________________</p></div><div className="form-actions"><button onClick={()=>window.print()}>Print / Download PDF</button><button className="primary" onClick={()=>S(true)}>Share for signing</button></div>{shared&&<p role="status" className="success">Signing request shared (simulated).</p>}</>}
-function RaiseTicket({unitId='',internal=false,close}:{unitId?:string;internal?:boolean;close:()=>void}){const {units,update,user}=useData();const [unit,U]=useState(unitId),[subject,S]=useState(internal?'Profile correction (D365)':''),[desc,D]=useState(''),[priority,P]=useState(''),[team,T]=useState('Sales Accounts'),[category,C]=useState('Collections');return <form onSubmit={e=>{e.preventDefault();update(d=>d.tickets.unshift({id:`TK-${Date.now()}`,unitId:unit,subject,description:desc,type:internal?'Internal':'Customer',category,priority,status:'Open',source:'RM',date:iso(),team}));close()}}><label>Linked customer / unit<input required list="unit-picker" value={unit} onChange={e=>U(e.target.value)} placeholder="Search unit or customer"/><datalist id="unit-picker">{units.map(u=><option value={u.id} key={u.id}>{u.unitNo} · {u.name}</option>)}</datalist></label>{!units.some(u=>u.id===unit)&&unit&&<p className="danger">Select a mapped unit from the suggestions.</p>}{internal&&<label>To team<Select value={team} onChange={T} options={['Sales Accounts','Legal','Audit','D365 Support','Projects']}/></label>}<label>Category<Select value={category} onChange={C} options={['Collections','Handover','Registration','Profile correction (D365)','General']}/></label><label>Subject<input required value={subject} onChange={e=>S(e.target.value)}/></label><label>Description<textarea required value={desc} onChange={e=>D(e.target.value)}/></label>{user.role==='RM'&&<Select label="Priority" value={priority} onChange={P} options={['High','Medium','Low']}/>}<button disabled={!units.some(u=>u.id===unit)} className="primary">Raise {internal?'internal ':''}ticket</button></form>}
-function Tickets(){const {db,units,update,user}=useData();const {ticketId}=useParams();const nav=useNavigate();const [q,Q]=useState(''),[tab,T]=useState('Customer'),[status,S]=useState(''),[priority,P]=useState(''),[modal,M]=useState(''),[visibility,V]=useState('External'),[text,Text]=useState(''),[rm,R]=useState('');const list=db.tickets.filter(t=>units.some(u=>u.id===t.unitId));const ticket=list.find(t=>t.id===ticketId);const filtered=list.filter(t=>t.type===tab&&(!status||t.status===status)&&(!priority||t.priority===priority)&&(!rm||units.find(u=>u.id===t.unitId)?.rmIds.includes(rm))&&`${t.id} ${t.subject} ${units.find(u=>u.id===t.unitId)?.name} ${units.find(u=>u.id===t.unitId)?.unitNo}`.toLowerCase().includes(q.toLowerCase()));const remarks=db.remarks.filter(r=>r.ticketId===ticketId);return <><Heading title="Tickets" subtitle="Resolve questions. Build trust. Keep conversations moving." action={<button className="primary" onClick={()=>M('Raise ticket')}><Plus size={16}/>Raise ticket</button>}/><div className="kpi-grid">{['Total (lifetime)','Open','Closed'].map(s=><Kpi key={s} label={s} value={list.filter(t=>s.startsWith('Total')||t.status===s).length}/>)}</div><Tabs values={['Customer','Internal']} value={tab} set={T}/><Toolbar search={q} setSearch={Q} reset={()=>{Q('');S('');P('');R('')}}><Select label="Status" value={status} onChange={S} options={['Open','Closed']}/><Select label="Priority" value={priority} onChange={P} options={['High','Medium','Low']}/>{user.role!=='RM'&&<Select label="RM" value={rm} onChange={R} options={['rm1','rm2','rm3','rm4']}/>}</Toolbar><DataList name={`${tab} tickets`} rows={filtered.map(t=>({_id:t.id,'Ticket ID':t.id,Customer:units.find(u=>u.id===t.unitId)?.name,Unit:units.find(u=>u.id===t.unitId)?.unitNo,Subject:t.subject,'Raised by':`${t.source==='CustomerApp'?'Customer (app)':'RM'} · ${date(t.date)}`,Priority:t.priority,Status:t.status,'Latest remark':db.remarks.filter(r=>r.ticketId===t.id).at(-1)?.text||'—'}))} onRow={r=>nav(`/tickets/${r._id}`)}/>{ticket&&<Modal title={`${ticket.id} · ${ticket.subject}`} close={()=>nav('/tickets')}><p><Link to={`/customers/${ticket.unitId}`}>{units.find(u=>u.id===ticket.unitId)?.name} · {units.find(u=>u.id===ticket.unitId)?.unitNo}</Link></p><p className="muted">{ticket.source==='CustomerApp'?'Customer (app)':'RM'} · {date(ticket.date)}</p><p>{ticket.description}</p><div className="form-actions">{user.role==='RM'?<Select label="Set priority" value={ticket.priority} onChange={v=>update(d=>{d.tickets.find(t=>t.id===ticket.id)!.priority=v})} options={['High','Medium','Low']}/>:<Chip>{ticket.priority||'Priority not assigned'}</Chip>}<button onClick={()=>update(d=>{d.tickets.find(t=>t.id===ticket.id)!.status=ticket.status==='Open'?'Closed':'Open'})}>Mark {ticket.status==='Open'?'Closed':'Open'}</button><button onClick={()=>M('Raise internal ticket')}>Raise internal ticket</button></div><Tabs values={['External','Internal']} value={visibility} set={V}/><p className="muted">{visibility==='External'?'Customer-visible conversation':'Private to Sobha team · included in consolidated remarks'}</p>{remarks.filter(r=>visibility==='External'?r.area==='External':r.area==='Ticket').map(r=><div className="remark" key={r.id}><b>{r.author}</b><small>{date(r.date,true)}</small><p>{r.text}</p></div>)}<form onSubmit={e=>{e.preventDefault();update(d=>d.remarks.push({id:createId(),unitId:ticket.unitId,ticketId:ticket.id,area:visibility==='External'?'External':'Ticket',text,author:user.name,role:user.role,date:iso()}));Text('')}}><textarea required value={text} onChange={e=>Text(e.target.value)} placeholder={`Add ${visibility.toLowerCase()} reply…`}/><button className="primary">Send reply</button></form></Modal>}{ticketId&&!ticket&&<p className="danger">Ticket not found in your portfolio.</p>}{modal&&<Modal title={modal} close={()=>M('')}><RaiseTicket unitId={ticket?.unitId} internal={modal==='Raise internal ticket'} close={()=>M('')}/></Modal>}</>}
-function Projects(){const {db}=useData();const [pid,P]=useState('0'),[wing,W]=useState('B'),[q,Q]=useState(''),[location,L]=useState(''),[modal,M]=useState(''),[shared,S]=useState(false);const p=projects[+pid],units=db.units.filter(u=>u.projectId===p.id&&u.wing===wing);const stages=['Excavation','Basement slabs','Ground floor','Floors 1–10 slabs','Floor 11','Floor 12','Floor 13 slab','MEP & finishing'];return <><Heading title="Projects" subtitle="Construction progress, inventory and project resources."/><div className="welcome-strip">View only · all projects · updated via CMS</div><Toolbar search={q} setSearch={Q}><select aria-label="Project" value={pid} onChange={e=>P(e.target.value)}>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><Select label="Tower / Wing" value={wing} onChange={W} options={['A','B','C','D']}/><Select label="Location" value={location} onChange={L} options={[...new Set(projects.map(p=>p.location))]}/></Toolbar>{(!location||location===p.location)&&`${p.name} ${p.location}`.toLowerCase().includes(q.toLowerCase())?<><div className="project-banner"><div><span className="eyebrow">PROJECT OVERVIEW</span><h1>{p.name}</h1><p>{p.address} · Tower {wing}</p><Chip>{p.oc?'OC received':'Under construction'}</Chip></div><Building2 size={80}/></div><div className="detail-grid"><Section title="Construction milestones">{stages.map((s,i)=><div className="timeline-row" key={s}><i/><b>{s}</b><Chip>{i<5?'Completed':i<7?'In Progress':'Not Started'}</Chip><span>Updated {date(new Date(Date.now()-8*86400000).toISOString())}</span></div>)}</Section><Section title="Tower inventory"><p>{units.length} total · {units.filter(u=>u.status!=='Unsold').length} sold · {units.filter(u=>u.status==='Unsold').length} available</p><ResponsiveContainer width="100%" height={190}><BarChart data={['Unsold','Active','Cancelled','Shifted','Reassigned'].map(s=>({name:s,count:units.filter(u=>u.status===s).length}))}><XAxis dataKey="name" tick={{fontSize:10}}/><Tooltip/><Bar dataKey="count" fill="#948254" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer>{['Unsold','Active','Cancelled','Shifted','Reassigned'].map(s=><div className="count-row" key={s}><span>{s==='Unsold'?'Unallocated':s}</span><b>{units.filter(u=>u.status===s).length}</b></div>)}</Section></div><Section title="Project document repository">{['RERA Certificate','Master Layout Plan','Floor Plans','Approvals','Construction Schedule'].map(t=><div className="document-row" key={t}><FileText size={20}/><b>{t}</b><small>CMS · Updated {date(iso())}</small><button onClick={()=>{M(t);S(false)}}>View / Share</button></div>)}</Section><Section title="Construction photos & progress report"><p className="muted">Oct 2026 · Photos uploaded 28 Oct · Report pending</p><div className="photo-grid">{['Tower facade','Landscape progress','Interior finishing'].map((title,i)=><button key={title} className={`photo photo${i}`} onClick={()=>M(`${title} · Tower ${wing} · Illustrative prototype asset`)}><Building2 size={50}/><span>{title} · Tower {wing}</span></button>)}</div><p className="muted">Illustrative assets · Actual site photography is not integrated.</p><button onClick={()=>M('Construction progress report · Placeholder PDF')}>View progress report</button></Section></>:<div className="empty">No projects match these filters.</div>}{modal&&<Modal title={modal} close={()=>M('')}><p>{p.name} · Tower {wing}</p><a href={placeholderPdf(modal)} target="_blank" rel="noreferrer">Open / Download placeholder PDF</a><button onClick={()=>S(true)}>Share</button>{shared&&<p role="status">Shared (simulated).</p>}</Modal>}</>}
-function Faqs(){const {db,user,update}=useData();const [q,Q]=useState(''),[category,C]=useState('All'),[domain,D]=useState(''),[article,A]=useState(''),[upload,U]=useState(false),[draft,F]=useState(''),[copied,Copy]=useState(false);const selected=db.kb.find(k=>k.id===article);const rows=db.kb.filter(k=>(category==='All'||k.category===category)&&(!domain||k.domain===domain)&&`${k.title} ${k.body} ${k.tags.join(' ')}`.toLowerCase().includes(q.toLowerCase()));return <><Heading title="Knowledge hub" subtitle="The right answer, at the right time. Resources for every customer conversation." action={user.role!=='RM'?<button className="primary" onClick={()=>U(true)}>+ Admin upload</button>:undefined}/><Toolbar search={q} setSearch={Q} reset={()=>{Q('');C('All');D('')}}/><Tabs values={['All','Guidelines','SOP','FAQ','Template']} value={category} set={C}/><div className="summary-grid">{[['Guidelines','Customer handling guidelines'],['FAQ','Customer FAQs'],['SOP','SOPs & process guides'],['Template','Communication templates']].map(([cat,title])=><Section key={cat} title={title}>{db.kb.filter(k=>k.category===cat).slice(0,3).map(k=><button className="article-link" key={k.id} onClick={()=>{A(k.id);F(k.body);Copy(false)}}><FileText size={15}/>{k.title}{Date.now()-Date.parse(k.date)<14*86400000&&<Chip>New</Chip>}</button>)}<button className="text-button" onClick={()=>C(cat)}>View all →</button></Section>)}</div><h2>Browse by operational domain</h2><div className="domain-grid">{[...new Set(db.kb.map(k=>k.domain))].map(d=><button className={`domain-card ${domain===d?'selected':''}`} key={d} onClick={()=>D(domain===d?'':d)}><BookOpen size={22}/><h3>{d}</h3><p>Practical guidance for your day-to-day interactions.</p><b>{db.kb.filter(k=>k.domain===d).length} articles →</b></button>)}</div><DataList name="Resources" rows={rows.map(k=>({_id:k.id,Title:k.title,Category:k.category,Domain:k.domain,Tags:k.tags.join(', '),Updated:date(k.date)}))} onRow={r=>{const k=db.kb.find(x=>x.id===r._id)!;A(k.id);F(k.body);Copy(false)}}/>{selected&&<Modal title={selected.title} close={()=>A('')}><Chip>{selected.category}</Chip><p className="muted">{selected.domain}</p>{selected.category==='Template'?<><textarea className="draft" value={draft} onChange={e=>F(e.target.value)}/><button onClick={async()=>{try{await navigator.clipboard.writeText(draft);Copy(true)}catch{Copy(false)}}}>{copied?'Copied':'Copy draft'}</button></>:<ReactMarkdown>{selected.body}</ReactMarkdown>}</Modal>}{upload&&<Modal title="Upload knowledge resource" close={()=>U(false)}><form onSubmit={e=>{e.preventDefault();const data=new FormData(e.currentTarget);update(d=>d.kb.unshift({id:createId(),title:String(data.get('title')),category:String(data.get('category')),domain:String(data.get('domain')),tags:String(data.get('tags')).split(','),body:String(data.get('body')),date:iso()}));U(false)}}><label>Title<input name="title" required/></label><label>Category<select name="category">{['Guidelines','SOP','FAQ','Template'].map(v=><option key={v}>{v}</option>)}</select></label><label>Domain<select name="domain">{[...new Set(db.kb.map(k=>k.domain))].map(v=><option key={v}>{v}</option>)}</select></label><label>Tags<input name="tags" placeholder="Comma separated"/></label><label>Body<textarea name="body" required/></label><button className="primary">Save resource</button></form></Modal>}</>}
+import { useLocation } from "react-router-dom";
+import { useData } from "./useData";
+import { useSession } from "../features/auth/session";
+import { Login } from "../features/auth/Login";
+import { getUser, roleName, reportingRms } from "../data/users";
+import { allowedPath } from "../data/access";
+import {
+  ManagementFilters,
+  useManagementFilters,
+} from "../features/management/filters";
+import {
+  ManagementWorkspace,
+  RemarksOverview,
+  TowerSummary,
+} from "../features/management/Views";
+import { TaskCreator, TagEditor } from "../features/management/Actions";
+import { Reports } from "../features/reports/Reports";
+import { Escalations } from "../features/escalations/Escalations";
+import {
+  assignedName,
+  targetRecords,
+  emptyFilters,
+} from "../data/management/queries";
+import { createId } from "../lib/id";
+import { RemarkForm } from "../components/RemarkForm";
+import { useEffect, useState } from "react";
+import {
+  NavLink,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearchParams,
+  Link,
+} from "react-router-dom";
+import {
+  LayoutDashboard,
+  Users,
+  Wallet,
+  KeyRound,
+  Building2,
+  BookOpen,
+  Ticket as TicketIcon,
+  BarChart3,
+  Search,
+  Bell,
+  ChevronDown,
+  ArrowUpRight,
+  CalendarDays,
+  PanelLeftClose,
+  Plus,
+  Check,
+  FileText,
+} from "lucide-react";
+import { BarChart, Bar, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import ReactMarkdown from "react-markdown";
+import { useStore } from "../data/repo";
+import { users, projects, Unit, iso, Doc } from "../data/seed";
+import {
+  finance,
+  segment,
+  scope,
+  latest,
+  aggregate,
+  handoverStage,
+  canInitiate,
+  month,
+} from "../data/rules";
+import { config } from "../data/config";
+import { money, date, placeholderPdf } from "../lib";
+import {
+  Chip,
+  Kpi,
+  Modal,
+  Select,
+  Toolbar,
+  DataList,
+  Assumptions,
+} from "../components/ui";
+const paths = [
+  "/workspace",
+  "/customers",
+  "/collections",
+  "/handover-registration",
+  "/projects",
+  "/faqs",
+  "/tickets",
+  "/reports",
+  "/escalations",
+];
+const icons = [
+  LayoutDashboard,
+  Users,
+  Wallet,
+  KeyRound,
+  Building2,
+  BookOpen,
+  TicketIcon,
+  BarChart3,
+  FileText,
+];
+export default function App() {
+  const { userId } = useSession();
+  const location = useLocation();
+  const db = useStore((state) => state.db);
+  const user = userId ? getUser(userId) : undefined;
+  const preferencesUser = useStore((state) => state.userId);
+  useEffect(() => {
+    if (user && preferencesUser !== user.id)
+      useStore.getState().setUser(user.id);
+  }, [user?.id, preferencesUser]);
+  if (!user)
+    return location.pathname === "/login" ? (
+      <Login />
+    ) : (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search }}
+      />
+    );
+  if (location.pathname === "/login")
+    return <Navigate to="/workspace" replace />;
+  if (!allowedPath(db, user.id, location.pathname))
+    return (
+      <div className="empty">
+        <h1>Access unavailable</h1>
+        <p>This page is outside your persona's scope.</p>
+        <Link to="/workspace">Back to workspace</Link>
+      </div>
+    );
+  return <ApplicationShell key={user.id} />;
+}
+function ApplicationShell() {
+  const { db, user, units, reset, update } = useData();
+  const [collapsed, C] = useState(false),
+    [query, Q] = useState(""),
+    [menu, M] = useState(false),
+    [bell, B] = useState(false);
+  const nav = useNavigate();
+  const location = useLocation();
+  const { logout } = useSession();
+  const { reset: resetScope } = useManagementFilters();
+  const notifications = db.notifications.filter(
+    (n) => n.userId === user.id && allowedPath(db, user.id, n.link),
+  );
+  const matches = units
+    .filter((u) =>
+      `${u.unitNo} ${u.name} ${u.code} ${u.ucn} ${u.mobile}`
+        .toLowerCase()
+        .includes(query.toLowerCase()),
+    )
+    .slice(0, 6);
+  const scheduled = db.visits.filter(
+    (v) =>
+      units.some((u) => u.id === v.unitId) &&
+      v.status === "Scheduled" &&
+      new Date(v.date) >= new Date(),
+  ).length;
+  return (
+    <div className={`shell ${collapsed ? "collapsed" : ""}`}>
+      <aside>
+        <div className="brand">
+          SOBHA<span>PASSION AT WORK</span>
+        </div>
+        <small className="nav-label">{roleName(user.role).toUpperCase()}</small>
+        <nav>
+          {config.role_permission[
+            user.role as keyof typeof config.role_permission
+          ].map((name, i) => {
+            const Icon = icons[i];
+            return (
+              <NavLink key={name} to={paths[i]}>
+                <Icon size={19} />
+                <span>{name}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="demo-dot" /> <span>Demo workspace</span>
+          <button
+            aria-label="Collapse sidebar"
+            className="icon"
+            onClick={() => C(!collapsed)}
+          >
+            <PanelLeftClose size={18} />
+          </button>
+        </div>
+      </aside>
+      <div className="main">
+        <header>
+          <div className="global-search">
+            <Search size={17} />
+            <input
+              placeholder="Search customer, unit, UCN or mobile"
+              value={query}
+              onChange={(e) => Q(e.target.value)}
+            />
+            <kbd>⌘ K</kbd>
+            {query && (
+              <div className="dropdown search-results">
+                {matches.length ? (
+                  matches.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => {
+                        nav(`/customers/${u.id}`);
+                        Q("");
+                      }}
+                    >
+                      <b>
+                        {u.unitNo} · {u.name}
+                      </b>
+                      <small>
+                        {projects[u.projectId].name} · {u.code}
+                      </small>
+                    </button>
+                  ))
+                ) : (
+                  <p>No matching mapped units</p>
+                )}
+              </div>
+            )}
+          </div>
+          <button
+            className="visit-chip"
+            onClick={() => nav("/customers?visit=Scheduled")}
+          >
+            <CalendarDays size={16} />
+            {scheduled} Site Visits Scheduled
+          </button>
+          <div className="relative">
+            <button
+              aria-label="Notifications"
+              className="icon bell"
+              onClick={() => B(!bell)}
+            >
+              <Bell size={20} />
+              {notifications.some((n) => !n.isRead) && <i />}
+            </button>
+            {bell && (
+              <div className="dropdown notifications">
+                <h3>Notifications</h3>
+                {notifications.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => {
+                      update((d) => {
+                        d.notifications.find((x) => x.id === n.id)!.isRead =
+                          true;
+                      });
+                      nav(n.link);
+                      B(false);
+                    }}
+                  >
+                    {!n.isRead && "● "}
+                    {n.text}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="relative">
+            <button className="user" onClick={() => M(!menu)}>
+              <span className="avatar">
+                {user.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </span>
+              <span>
+                {user.name}
+                <small>{roleName(user.role)}</small>
+              </span>
+              <ChevronDown size={14} />
+            </button>
+            {menu && (
+              <div className="dropdown user-menu">
+                <h4>
+                  {user.name} · {roleName(user.role)}
+                </h4>
+                <button
+                  onClick={() => {
+                    resetScope();
+                    logout();
+                    nav("/login");
+                  }}
+                >
+                  Change persona
+                </button>
+                <button
+                  onClick={() => {
+                    resetScope();
+                    logout();
+                    nav("/login");
+                  }}
+                >
+                  Logout
+                </button>
+                <hr />
+                <button
+                  onClick={() => {
+                    reset();
+                    M(false);
+                  }}
+                >
+                  Reset demo data
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+        <main>
+          {user.role !== "RM" &&
+            !["/projects", "/faqs"].includes(location.pathname) && (
+              <ManagementFilters />
+            )}
+          <Routes>
+            <Route
+              path="/workspace"
+              element={
+                user.role === "RM" ? <Workspace /> : <ManagementWorkspace />
+              }
+            />
+            <Route path="/workspace/tasks" element={<Tasks />} />
+            <Route path="/customers" element={<Directory />} />
+            <Route path="/customers/:unitId" element={<Detail />} />
+            <Route path="/collections" element={<Collections />} />
+            <Route path="/handover-registration" element={<Handover />} />
+            <Route
+              path="/handover-registration/:unitId"
+              element={<Detail handover />}
+            />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/tickets" element={<Tickets />} />
+            <Route path="/tickets/:ticketId" element={<Tickets />} />
+            <Route path="/faqs" element={<Faqs />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/escalations" element={<Escalations />} />
+            <Route path="*" element={<Navigate to="/workspace" />} />
+          </Routes>
+          <Assumptions />
+          <div className="page-footer">
+            SOBHA RELATIONSHIP MANAGEMENT{" "}
+            <span>Prototype · Simulated data · No live integrations</span>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+function Heading({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="heading">
+      <div>
+        <div className="eyebrow">YOUR PORTFOLIO, CONNECTED</div>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </div>
+      {action || <span className="date">{date(iso())}</span>}
+    </div>
+  );
+}
+function Section({
+  title,
+  to,
+  children,
+}: {
+  title: string;
+  to?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="panel">
+      <div className="section-heading">
+        <h2>{title}</h2>
+        {to && (
+          <Link to={to}>
+            View all <ArrowUpRight size={15} />
+          </Link>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+function Workspace() {
+  const { db, units, user, tasks } = useData();
+  const monthlyTargets = targetRecords(db, user.id, emptyFilters());
+  const collectionTarget = monthlyTargets.reduce(
+    (sum, target) => sum + target.collection,
+    0,
+  );
+  const handoverTarget = Math.round(
+    monthlyTargets.reduce((sum, target) => sum + target.handover, 0),
+  );
+  const registrationTarget = Math.round(
+    monthlyTargets.reduce((sum, target) => sum + target.registration, 0),
+  );
+  const total = aggregate(db, units),
+    tickets = db.tickets.filter((t) => units.some((u) => u.id === t.unitId)),
+    ho = units.filter(
+      (u) =>
+        db.handovers[u.id]?.status === "Appointment Booked" &&
+        month(db.handovers[u.id].date),
+    ).length,
+    reg = units.filter(
+      (u) =>
+        db.registrations[u.id]?.status === "Completed" &&
+        month(db.registrations[u.id].date),
+    ).length;
+  const [tab, T] = useState("Handover");
+  return (
+    <>
+      <Heading
+        title={`Good morning, ${user.name.split(" ")[0]}`}
+        subtitle="Here's what needs your attention today. Let's make every interaction count."
+      />
+      <div className="welcome-strip">
+        <span>
+          <span className="live-dot" /> Your workspace is up to date
+        </span>
+        <span>
+          {units.length} managed accounts · {projects.length} projects
+        </span>
+      </div>
+      <div className="dashboard-grid">
+        <Section title="Collections overview" to="/collections">
+          <div className="collection-hero">
+            <div>
+              <span className="muted">MONTHLY TARGET ACHIEVEMENT</span>
+              <strong>
+                {collectionTarget
+                  ? ((total.achieved / collectionTarget) * 100).toFixed(0)
+                  : "—"}
+                {collectionTarget > 0 && <small>%</small>}
+              </strong>
+              <p>
+                <b>{money(total.achieved)}</b> of{" "}
+                {collectionTarget
+                  ? money(collectionTarget)
+                  : "Target not configured"}
+              </p>
+            </div>
+            <div className="round-icon">
+              <Wallet size={27} />
+            </div>
+          </div>
+          <div className="progress">
+            <i
+              style={{
+                width: `${collectionTarget ? Math.min(100, (total.achieved / collectionTarget) * 100) : 0}%`,
+              }}
+            />
+          </div>
+          <div className="overdue">
+            <span>
+              Total overdue <Chip tone="red">Needs attention</Chip>
+            </span>
+            <b>{money(total.overdue)}</b>
+          </div>
+          <p className="source">
+            D365 · As of {date(new Date(Date.now() - 86400000).toISOString())}{" "}
+            (D-1)
+          </p>
+          <MiniList
+            units={[...units]
+              .sort((a, b) => finance(db, b).overdue - finance(db, a).overdue)
+              .slice(0, 5)}
+            mode="finance"
+          />
+        </Section>
+        <Section title="Tickets" to="/tickets">
+          <div className="split-stats">
+            <Kpi
+              label="Open tickets"
+              value={tickets.filter((t) => t.status === "Open").length}
+            />
+            <Kpi
+              label="High priority"
+              value={
+                tickets.filter(
+                  (t) => t.status === "Open" && t.priority === "High",
+                ).length
+              }
+            />
+          </div>
+          {tickets.slice(0, 5).map((t) => (
+            <Link className="preview-row" key={t.id} to={`/tickets/${t.id}`}>
+              <span className="ticket-symbol">
+                <TicketIcon size={18} />
+              </span>
+              <div>
+                <b>{t.subject}</b>
+                <small>
+                  {t.id} · {units.find((u) => u.id === t.unitId)?.unitNo} ·{" "}
+                  {units.find((u) => u.id === t.unitId)?.name}
+                </small>
+              </div>
+              <Chip>{t.priority || "Unassigned"}</Chip>
+              <Chip>{t.status}</Chip>
+            </Link>
+          ))}
+        </Section>
+        <Section title="Handover & registration" to="/handover-registration">
+          <div className="split-stats">
+            <Kpi
+              label="Handover scheduled"
+              value={`${ho} / ${handoverTarget || "Not configured"}`}
+              source="CMS / CRM"
+              progress={(ho / handoverTarget) * 100}
+            />
+            <Kpi
+              label="Registration completed"
+              value={`${reg} / ${registrationTarget || "Not configured"}`}
+              source="CMS / CRM"
+              progress={(reg / registrationTarget) * 100}
+            />
+          </div>
+          <Tabs values={["Handover", "Registration"]} value={tab} set={T} />
+          <MiniList
+            units={units
+              .filter((u) =>
+                tab === "Handover" ? u.ready : !!projects[u.projectId].oc,
+              )
+              .slice(0, 5)}
+            mode={tab}
+          />
+        </Section>
+        <Section
+          title={user.role === "RM" ? "My tasks" : "Team tasks"}
+          to="/workspace/tasks"
+        >
+          <div className="split-stats">
+            <Kpi
+              label="Open tasks"
+              value={tasks.filter((t) => t.status === "Open").length}
+            />
+            <Kpi
+              label="Completed"
+              value={tasks.filter((t) => t.status === "Closed").length}
+            />
+          </div>
+          {tasks.slice(0, 5).map((t) => (
+            <TaskRow key={t.id} task={t} />
+          ))}
+        </Section>
+      </div>
+    </>
+  );
+}
+function Tabs({
+  values,
+  value,
+  set,
+}: {
+  values: string[];
+  value: string;
+  set: (s: string) => void;
+}) {
+  return (
+    <div className="tabs">
+      {values.map((v) => (
+        <button
+          className={value === v ? "active" : ""}
+          key={v}
+          onClick={() => set(v)}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  );
+}
+function MiniList({ units, mode }: { units: Unit[]; mode: string }) {
+  const { db } = useData();
+  return (
+    <div>
+      {units.map((u) => (
+        <Link
+          key={u.id}
+          className="preview-row"
+          to={`${mode === "finance" ? "/customers" : "/handover-registration"}/${u.id}`}
+        >
+          <span className="unit-icon">{u.wing}</span>
+          <div>
+            <b>
+              {u.unitNo} <span className="subtle">· {u.name}</span>
+            </b>
+            <small>
+              {projects[u.projectId].name} ·{" "}
+              <span className={`seg seg${segment(db, u)}`}>
+                Seg {segment(db, u)}
+              </span>{" "}
+              {u.tags[0]}
+            </small>
+          </div>
+          {mode === "finance" ? (
+            <b className="danger">{money(finance(db, u).overdue)}</b>
+          ) : (
+            <Chip>
+              {mode === "Handover"
+                ? handoverStage(db, u)
+                : db.registrations[u.id]?.status || "Pending"}
+            </Chip>
+          )}
+        </Link>
+      ))}
+    </div>
+  );
+}
+function TaskRow({
+  task: t,
+}: {
+  task: ReturnType<typeof useData>["db"]["tasks"][number];
+}) {
+  const { update, db } = useData();
+  return (
+    <div className="preview-row">
+      <input
+        aria-label={`Complete ${t.title}`}
+        type="checkbox"
+        checked={t.status === "Closed"}
+        onChange={() =>
+          update((d) => {
+            d.tasks.find((x) => x.id === t.id)!.status =
+              t.status === "Closed" ? "Open" : "Closed";
+          })
+        }
+      />
+      <div>
+        <b className={t.status === "Closed" ? "strike" : ""}>{t.title}</b>
+        <small>
+          {t.givenBy} · Due {date(t.dueDate)}
+        </small>
+      </div>
+      {t.unitId ? (
+        <Link className="chip" to={`/customers/${t.unitId}`}>
+          {db.units.find((u) => u.id === t.unitId)?.unitNo}
+        </Link>
+      ) : (
+        <Chip>N/A</Chip>
+      )}
+    </div>
+  );
+}
+function Tasks() {
+  const { db, tasks, user } = useData();
+  const [q, Q] = useState(""),
+    [status, S] = useState("All"),
+    [priority, P] = useState(""),
+    [given, G] = useState("");
+  const rows = tasks
+    .filter(
+      (t) =>
+        (status === "All" || t.status === status) &&
+        (!priority || t.priority === priority) &&
+        (!given || t.givenBy === given) &&
+        `${t.title} ${t.description}`.toLowerCase().includes(q.toLowerCase()),
+    )
+    .map((t) => ({
+      _id: t.id,
+      Task: t.title,
+      Description: t.description,
+      "Given by": t.givenBy,
+      Priority: t.priority,
+      Status: t.status,
+      Created: date(t.date),
+      Due: date(t.dueDate),
+    }));
+  return (
+    <>
+      <Heading
+        title={user.role === "RM" ? "My tasks" : "Team tasks"}
+        subtitle="Your follow-ups, priorities and next steps."
+        action={
+          <div className="form-actions">
+            <TaskCreator />
+            <Link to="/workspace">← Back to Workspace</Link>
+          </div>
+        }
+      />
+      <div className="kpi-grid">
+        {["All", "Open", "Closed"].map((s) => (
+          <Kpi
+            key={s}
+            label={s === "All" ? "Total" : s}
+            value={tasks.filter((t) => s === "All" || t.status === s).length}
+          />
+        ))}
+      </div>
+      <Tabs values={["All", "Open", "Closed"]} value={status} set={S} />
+      <Toolbar search={q} setSearch={Q}>
+        <Select
+          value={priority}
+          onChange={P}
+          options={["High", "Medium", "Low"]}
+          label="Priority"
+        />
+        <Select
+          value={given}
+          onChange={G}
+          options={[...new Set(tasks.map((t) => t.givenBy))]}
+          label="Given by"
+        />
+      </Toolbar>
+      <DataList
+        name="Tasks"
+        rows={rows}
+        extra={(r) => <TaskRow task={db.tasks.find((t) => t.id === r._id)!} />}
+      />
+    </>
+  );
+}
+function Directory() {
+  const { db, units, user, columns, setColumns } = useData();
+  const [params] = useSearchParams();
+  const [q, Q] = useState(""),
+    [seg, S] = useState(params.get("segment") || ""),
+    [tag, T] = useState(""),
+    [status, St] = useState("Active"),
+    [ups, U] = useState(""),
+    [visit, V] = useState(params.get("visit") || ""),
+    [rm, R] = useState(""),
+    [cols, C] = useState(false);
+  const nav = useNavigate();
+  const reset = () => {
+    Q("");
+    S("");
+    T("");
+    St("");
+    U("");
+    V("");
+    R("");
+  };
+  const filtered = units.filter(
+    (u) =>
+      (!seg || String(segment(db, u)) === seg) &&
+      (!tag || u.tags.includes(tag)) &&
+      (!status || u.status === status) &&
+      (!rm || u.rmIds.includes(rm)) &&
+      (!ups ||
+        db.upsells.some((x) => x.unitId === u.id && x.category === ups)) &&
+      (!visit ||
+        db.visits.some((x) => x.unitId === u.id && x.status === visit)) &&
+      `${u.unitNo} ${u.name} ${u.code}`.toLowerCase().includes(q.toLowerCase()),
+  );
+  const rows = filtered.map((u) => ({
+    _id: u.id,
+    "Customer ID": u.code,
+    Unit: `${u.unitNo} · ${projects[u.projectId].name}`,
+    Customer: u.name,
+    ...(user.role !== "RM" ? { "Assigned RM": assignedName(u) } : {}),
+    Segment: `Segment ${segment(db, u)}`,
+    Tags: u.tags.join(", "),
+    "Unit Status": u.status,
+    Upsell: db.upsells
+      .filter((x) => x.unitId === u.id)
+      .map((x) => `${x.category} · ${x.status}`)
+      .join(", "),
+    "Site Visit": db.visits
+      .filter((x) => x.unitId === u.id)
+      .map((x) => `${date(x.date)} · ${x.category} · ${x.status}`)
+      .join(", "),
+    "Latest Remark": latest(db, u.id)?.text || "—",
+    "Due status": finance(db, u).age
+      ? `Overdue ${finance(db, u).age} days`
+      : "Due in 10 days",
+  }));
+  return (
+    <>
+      <Heading
+        title="Customer 360"
+        subtitle="A complete view of your customers. Every relationship, in one place."
+      />
+      <div className="summary-grid">
+        <Section title="Customer segments">
+          <p className="muted">Managed accounts: {units.length}</p>
+          {[1, 2, 3, 4].map((n) => {
+            const members = units.filter((u) => segment(db, u) === n);
+            return (
+              <button
+                className="segment-row"
+                key={n}
+                onClick={() => S(String(n))}
+              >
+                <Chip tone={`seg${n}`}>Segment {n}</Chip>
+                <div className="progress">
+                  <i
+                    style={{
+                      width: `${(members.length / units.length) * 100}%`,
+                    }}
+                  />
+                </div>
+                <b>{members.length}</b>
+                <small>
+                  {((members.length / units.length) * 100).toFixed(0)}% ·{" "}
+                  {money(aggregate(db, members).overdue)}
+                </small>
+              </button>
+            );
+          })}
+        </Section>
+        <Section title="Behavioral tags">
+          {config.tags.map((t) => (
+            <button className="count-row" key={t} onClick={() => T(t)}>
+              <span>{t}</span>
+              <b>{units.filter((u) => u.tags.includes(t)).length}</b>
+            </button>
+          ))}
+        </Section>
+        <Section title="Site visits requested">
+          {["Pre-inspection", "Handover", "Site Visit"].map((c) => (
+            <button
+              className="count-row"
+              key={c}
+              onClick={() => V("Requested")}
+            >
+              <span>{c}</span>
+              <b>
+                {
+                  db.visits.filter(
+                    (v) =>
+                      v.category === c &&
+                      v.status === "Requested" &&
+                      units.some((u) => u.id === v.unitId),
+                  ).length
+                }
+              </b>
+            </button>
+          ))}
+          <div className="card-note">
+            <CalendarDays size={18} /> Turn requests into meaningful visits.
+          </div>
+        </Section>
+        <Section title="Unit status summary">
+          {["Active", "Cancelled", "Shifted", "Reassigned"].map((s) => (
+            <button className="count-row" key={s} onClick={() => St(s)}>
+              <Chip>{s}</Chip>
+              <b>{units.filter((u) => u.status === s).length}</b>
+            </button>
+          ))}
+        </Section>
+      </div>
+      <Toolbar search={q} setSearch={Q} reset={reset}>
+        <Select
+          value={seg}
+          onChange={S}
+          options={["1", "2", "3", "4"]}
+          label="Segment"
+        />
+        <Select value={tag} onChange={T} options={config.tags} label="Tag" />
+        <Select
+          value={status}
+          onChange={St}
+          options={["Active", "Cancelled", "Shifted", "Reassigned"]}
+          label="Unit status"
+        />
+        <Select
+          value={ups}
+          onChange={U}
+          options={config.upsells}
+          label="Upsell"
+        />
+        <Select
+          value={visit}
+          onChange={V}
+          options={["Requested", "Scheduled", "Completed"]}
+          label="Site visit"
+        />
+        {user.role !== "RM" && (
+          <Select
+            value={rm}
+            onChange={R}
+            options={reportingRms(user.id).map((u) => u.id)}
+            optionLabels={Object.fromEntries(users.map((u) => [u.id, u.name]))}
+            label="RM"
+          />
+        )}
+      </Toolbar>
+      <div className="active-filters">
+        {[seg && `Segment ${seg}`, tag, status, ups, visit].map((x, i) =>
+          x ? (
+            <button key={i} onClick={() => [S, T, St, U, V][i]("")}>
+              {x} ×
+            </button>
+          ) : null,
+        )}
+        <button onClick={() => C(!cols)}>Columns ({columns.length}/10)</button>
+      </div>
+      {cols && (
+        <div className="column-options">
+          {[
+            "Customer ID",
+            "Unit",
+            "Customer",
+            "Segment",
+            "Tags",
+            "Unit Status",
+            "Upsell",
+            "Site Visit",
+            "Latest Remark",
+            "Due status",
+          ].map((c) => (
+            <label key={c}>
+              <input
+                type="checkbox"
+                checked={columns.includes(c)}
+                onChange={() =>
+                  setColumns(
+                    columns.includes(c)
+                      ? columns.filter((x) => x !== c)
+                      : [...columns, c],
+                  )
+                }
+              />
+              {c}
+            </label>
+          ))}
+        </div>
+      )}
+      <DataList
+        name="Customer directory"
+        rows={rows}
+        columns={
+          user.role === "RM"
+            ? columns
+            : [...columns.filter((c) => c !== "Assigned RM"), "Assigned RM"]
+        }
+        onRow={(r) => nav(`/customers/${r._id}`)}
+      />
+      {user.role !== "RM" && <RemarksOverview />}
+    </>
+  );
+}
+function Collections() {
+  const { db, units, user, filters } = useData();
+  const [collectionParams] = useSearchParams();
+  const [q, Q] = useState(""),
+    [seg, S] = useState(""),
+    [tag, T] = useState(""),
+    [quick, F] = useState(""),
+    [remark, R] = useState(""),
+    [rm, RM] = useState(collectionParams.get("rm") || ""),
+    [view, V] = useState(collectionParams.get("view") || "All");
+  const nav = useNavigate();
+  const period = user.role === "RM" ? emptyFilters().period : filters.period;
+  const a = aggregate(db, units, period);
+  const collectionTarget = targetRecords(
+    db,
+    user.id,
+    user.role === "RM" ? emptyFilters() : filters,
+  ).reduce((sum, target) => sum + target.collection, 0);
+  const filtered = units.filter((u) => {
+    const f = finance(db, u, period);
+    return (
+      `${u.name} ${u.unitNo}`.toLowerCase().includes(q.toLowerCase()) &&
+      (!seg || segment(db, u) === +seg) &&
+      (!tag || u.tags.includes(tag)) &&
+      (!rm || u.rmIds[0] === rm) &&
+      (view === "All" ||
+        (view === "Overdue" && f.overdue > 0) ||
+        (view === "Upcoming" && f.dueMonth > 0) ||
+        (view === "PC" && u.tags.includes("Possible Cancellation")) ||
+        (view === "Interest" && f.interest >= 100)) &&
+      (!quick ||
+        (quick === "Overdue > Rs 5 L"
+          ? f.overdue > 500000
+          : quick === "Interest > Rs 5 L"
+            ? f.interest > 500000
+            : f.interest >= 100))
+    );
+  });
+  const pc = aggregate(
+    db,
+    units.filter((u) => u.tags.includes("Possible Cancellation")),
+    period,
+  );
+  return (
+    <>
+      <Heading
+        title="Collections"
+        subtitle="Track collections, resolve overdue balances and keep payments moving."
+      />
+      <div className="kpi-grid four">
+        <Kpi
+          label="Target vs achieved"
+          value={
+            collectionTarget
+              ? `${((a.achieved / collectionTarget) * 100).toFixed(0)}%`
+              : "—"
+          }
+          sub={`${money(a.achieved)} of ${collectionTarget ? money(collectionTarget) : "Target not configured"}`}
+          source="D365 / CMS"
+          progress={(a.achieved / collectionTarget) * 100}
+        />
+        {[
+          ["Total outstanding", a.outstanding],
+          ["Overdue", a.overdue],
+          ["Due this month", a.dueMonth],
+        ].map(([l, v]) => (
+          <Kpi
+            key={l}
+            label={String(l)}
+            value={money(Number(v))}
+            source="D365"
+          />
+        ))}
+      </div>
+      <h3>
+        Interest{" "}
+        <span className="muted">
+          · Calculated in D365; lines &lt; Rs 100 hidden
+        </span>
+      </h3>
+      <div className="kpi-grid four">
+        {[
+          ["Charged", a.interest],
+          ["Collected", a.interestCollected],
+          ["To be received", a.interest - a.interestCollected - a.waived],
+          ["Waived off", a.waived],
+          ["PC outstanding", pc.outstanding],
+          ["PC collected", pc.achieved],
+        ].map(([l, v]) => (
+          <Kpi
+            key={l}
+            label={String(l)}
+            value={money(Number(v))}
+            source="D365"
+          />
+        ))}
+      </div>
+      <Toolbar
+        search={q}
+        setSearch={Q}
+        reset={() => {
+          Q("");
+          S("");
+          T("");
+          F("");
+          RM("");
+          V("All");
+        }}
+      >
+        <Select
+          value={view}
+          onChange={V}
+          options={["All", "Overdue", "Upcoming", "PC", "Interest"]}
+        />
+        <Select
+          value={seg}
+          onChange={S}
+          options={["1", "2", "3", "4"]}
+          label="Segment"
+        />
+        <Select value={tag} onChange={T} options={config.tags} label="Tag" />
+        {user.role !== "RM" && (
+          <Select
+            value={rm}
+            onChange={RM}
+            options={reportingRms(user.id).map((u) => u.id)}
+            optionLabels={Object.fromEntries(users.map((u) => [u.id, u.name]))}
+            label="RM"
+          />
+        )}
+      </Toolbar>
+      <div className="quick-filters">
+        {["Overdue > Rs 5 L", "Interest > Rs 5 L", "Interest applied"].map(
+          (f) => (
+            <button
+              className={f === quick ? "selected" : ""}
+              key={f}
+              onClick={() => F(f === quick ? "" : f)}
+            >
+              {f}
+            </button>
+          ),
+        )}
+      </div>
+      <DataList
+        name="Collections"
+        rows={filtered.map((u) => {
+          const f = finance(db, u, period);
+          return {
+            _id: u.id,
+            Unit: u.unitNo,
+            Customer: u.name,
+            ...(user.role !== "RM" ? { "Assigned RM": assignedName(u) } : {}),
+            Segment: segment(db, u),
+            Tag: u.tags.join(", "),
+            Outstanding: money(f.outstanding),
+            Overdue: `${money(f.overdue)} · ${f.age} days`,
+            "Due this month": money(f.dueMonth),
+            "Interest charged": f.interest ? money(f.interest) : "",
+            "Interest waived": money(f.waived),
+            "Latest Remark": latest(db, u.id)?.text || "—",
+          };
+        })}
+        onRow={(r) => nav(`/customers/${r._id}`)}
+        extra={(r) => (
+          <button onClick={() => R(String(r._id))}>+ Remark</button>
+        )}
+      />
+      {remark && (
+        <Modal title="Collection remark" close={() => R("")}>
+          <RemarkForm unitId={remark} area="Collections" done={() => R("")} />
+        </Modal>
+      )}
+      {user.role !== "RM" && <TowerSummary />}
+    </>
+  );
+}
+function Detail({ handover = false }: { handover?: boolean }) {
+  const { unitId } = useParams();
+  const { db, authorized: units, update, user } = useData();
+  const u = units.find((x) => x.id === unitId);
+  const [tab, T] = useState("Overview"),
+    [modal, M] = useState(""),
+    [area, A] = useState(""),
+    [note, N] = useState(""),
+    [visitDate, VD] = useState(""),
+    [category, VC] = useState("Site Visit"),
+    [ups, U] = useState(config.upsells[0]),
+    [bucket, B] = useState("General"),
+    [docType, DT] = useState("RM upload");
+  if (!u)
+    return (
+      <div className="empty">
+        This unit is outside your portfolio or does not exist.{" "}
+        <Link to="/customers">Back to customers</Link>
+      </div>
+    );
+  const f = finance(db, u),
+    stage = handoverStage(db, u),
+    oc = !!projects[u.projectId].oc;
+  const complete = stage === "Completed";
+  const docs = db.documents.filter((d) => d.unitId === u.id);
+  const remarks = db.remarks
+    .filter(
+      (r) =>
+        r.unitId === u.id &&
+        r.area !== "External" &&
+        (!area || r.area === area),
+    )
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const upload = async (file: File) => {
+    const url = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    update((d) => {
+      d.documents.push({
+        id: createId(),
+        unitId: u.id,
+        name: file.name,
+        bucket,
+        type: docType,
+        date: iso(),
+        url,
+      });
+      if (docType === "TDS receipt")
+        d.units.find((x) => x.id === u.id)!.tds = true;
+    });
+    M("");
+  };
+  return (
+    <>
+      <div className="breadcrumbs">
+        <Link to={handover ? "/handover-registration" : "/customers"}>
+          ← {handover ? "Handover & registration" : "Customer 360"}
+        </Link>{" "}
+        / {u.unitNo}
+      </div>
+      <div className="profile panel">
+        <div className="profile-avatar">
+          {u.name
+            .split(" ")
+            .map((x) => x[0])
+            .slice(0, 2)
+            .join("")}
+        </div>
+        <div className="profile-main">
+          <div className="eyebrow">
+            {u.code} · {u.ucn}
+          </div>
+          <h1>{u.name}</h1>
+          <p>
+            Co-applicant: {u.coApplicant} · {u.city}, {u.country}
+          </p>
+          <p>
+            {u.mobile} · {u.email}{" "}
+            {user.role !== "Leadership" && (
+              <button
+                className="text-button"
+                onClick={() => M("Profile correction (D365)")}
+              >
+                Report data issue
+              </button>
+            )}
+          </p>
+          <div className="chips">
+            <span title="System-derived">
+              <Chip>Segment {segment(db, u)}</Chip>
+            </span>
+            {u.tags.map((t) => (
+              <Chip key={t}>{t}</Chip>
+            ))}
+            <TagEditor key={u.id} unit={u} />
+          </div>
+        </div>
+        <div className="unit-profile">
+          <h2>
+            {u.unitNo}{" "}
+            <Chip>{u.ready ? "Handover Ready" : "Under Construction"}</Chip>
+          </h2>
+          <p>
+            {projects[u.projectId].name} · Tower {u.wing}
+          </p>
+          <p>3BHK · 1,845 sq ft · {projects[u.projectId].location}</p>
+          <Link
+            to={
+              handover ? `/customers/${u.id}` : `/handover-registration/${u.id}`
+            }
+          >
+            {handover ? "Open Customer Detail" : "Handover & registration"}{" "}
+            <ArrowUpRight size={13} />
+          </Link>
+        </div>
+      </div>
+      {db.visits
+        .filter(
+          (v) =>
+            v.unitId === u.id &&
+            v.status === "Scheduled" &&
+            Date.parse(v.date) >= Date.now(),
+        )
+        .map((v) => (
+          <div className="visit-banner" key={v.id}>
+            <CalendarDays size={18} /> Next visit: {date(v.date, true)} ·{" "}
+            {v.category} · confirmed by RM
+          </div>
+        ))}
+      {!handover && (
+        <Tabs
+          values={[
+            "Overview",
+            "Financials",
+            "Documents",
+            "Remarks",
+            "Timeline",
+          ]}
+          value={tab}
+          set={T}
+        />
+      )}
+      <div className={handover ? "" : "detail-grid"}>
+        <div>
+          {(!handover || !complete) &&
+            (tab === "Overview" || tab === "Financials" || handover) && (
+              <Section title="Financial overview">
+                <div className="kpi-grid four">
+                  {[
+                    ["Agreement value", u.agreement],
+                    ["Total demanded", f.demanded],
+                    ["Total collected", f.collected],
+                    ["Balance pending", f.balance],
+                  ].map(([l, v]) => (
+                    <Kpi
+                      key={l}
+                      label={String(l)}
+                      value={money(Number(v))}
+                      source="D365"
+                    />
+                  ))}
+                </div>
+                <button onClick={() => M("Statement")}>
+                  <FileText size={16} />
+                  Provisional statement
+                </button>
+                {!handover && (
+                  <>
+                    <h3>Payment milestones</h3>
+                    <DataList
+                      name="Milestones"
+                      rows={db.ledger
+                        .filter((t) => t.unitId === u.id && t.debit)
+                        .map((t, i) => ({
+                          Milestone:
+                            t.type === "Interest"
+                              ? "Interest"
+                              : `Construction-linked demand ${i + 1}`,
+                          Demanded: date(t.date),
+                          Due: date(t.dueDate),
+                          Amount: money(t.debit),
+                          Paid: money(Math.min(f.collected, t.debit)),
+                          Status: f.balance === 0 ? "Paid" : "Part-paid",
+                        }))}
+                    />
+                    <p className="muted">
+                      Upcoming: next three construction-linked milestones
+                      (estimated)
+                    </p>
+                    {["Floor slabs", "MEP & finishing", "Possession"].map(
+                      (x, i) => (
+                        <p key={x}>
+                          {x} ·{" "}
+                          {date(
+                            new Date(
+                              Date.now() + (i + 1) * 30 * 86400000,
+                            ).toISOString(),
+                          )}{" "}
+                          · Upcoming
+                        </p>
+                      ),
+                    )}
+                  </>
+                )}
+              </Section>
+            )}
+          {handover && (
+            <>
+              <Section title="Handover timeline">
+                {complete ? (
+                  <div className="success">
+                    <Check size={20} />
+                    Handover completed on {date(db.handovers[u.id].date)}
+                  </div>
+                ) : (
+                  <>
+                    <div className="stepper">
+                      {[
+                        "Handover Ready",
+                        "Initiated",
+                        "Appointment Booked",
+                        "Completed",
+                      ].map((s, i) => {
+                        const current = [
+                          "Handover Ready",
+                          "Initiated",
+                          "Appointment Booked",
+                          "Completed",
+                        ].indexOf(stage);
+                        return (
+                          <div key={s} className={i <= current ? "done" : ""}>
+                            <span>{i + 1}</span>
+                            <b>{s}</b>
+                            <small>
+                              {i < current
+                                ? "Completed"
+                                : i === current
+                                  ? "In Progress"
+                                  : "Pending"}
+                            </small>
+                            <small>
+                              {i === 0
+                                ? date(u.readyDate)
+                                : i <= current
+                                  ? date(db.handovers[u.id]?.date)
+                                  : "—"}
+                            </small>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="form-actions">
+                      <button
+                        onClick={() => {
+                          const error = canInitiate(db, u);
+                          if (error) M(error);
+                          else
+                            update((d) => {
+                              d.handovers[u.id] = {
+                                status: "Initiated",
+                                date: iso(),
+                              };
+                            });
+                        }}
+                        disabled={stage !== "Handover Ready"}
+                      >
+                        Initiate handover
+                      </button>
+                      <Link to={`/customers/${u.id}`}>
+                        Schedule in Customer Detail →
+                      </Link>
+                      <button
+                        className="primary"
+                        disabled={
+                          stage !== "Appointment Booked" ||
+                          !docs.some(
+                            (d) =>
+                              d.bucket === "Handover" &&
+                              d.type === "Customer sign-off",
+                          )
+                        }
+                        onClick={() =>
+                          update((d) => {
+                            d.handovers[u.id] = {
+                              status: "Completed",
+                              date: iso(),
+                            };
+                          })
+                        }
+                      >
+                        Mark completed
+                      </button>
+                    </div>
+                    <p className="muted">
+                      Completion requires a Customer sign-off upload in the
+                      Handover bucket.
+                    </p>
+                  </>
+                )}
+              </Section>
+              <Section title="Registration timeline">
+                {!oc ? (
+                  <div className="inactive">
+                    <Chip>Inactive</Chip> Awaiting project OC receipt.
+                    Registration actions are unavailable.
+                  </div>
+                ) : (
+                  <>
+                    <div className="stepper">
+                      <div className="done">
+                        <span>1</span>
+                        <b>Details Collected</b>
+                        <small>
+                          {db.registrations[u.id]
+                            ? date(db.registrations[u.id].date)
+                            : "Pending"}
+                        </small>
+                      </div>
+                      <div
+                        className={
+                          db.registrations[u.id]?.status === "Completed"
+                            ? "done"
+                            : ""
+                        }
+                      >
+                        <span>2</span>
+                        <b>Completed</b>
+                        <small>
+                          {db.registrations[u.id]?.status === "Completed"
+                            ? date(db.registrations[u.id].date)
+                            : "Pending"}
+                        </small>
+                      </div>
+                    </div>
+                    <button
+                      disabled={!!db.registrations[u.id]}
+                      onClick={() =>
+                        update((d) => {
+                          d.registrations[u.id] = {
+                            status: "Details Collected",
+                            date: iso(),
+                          };
+                        })
+                      }
+                    >
+                      Mark details collected
+                    </button>{" "}
+                    <button
+                      disabled={
+                        !db.registrations[u.id] ||
+                        db.registrations[u.id].status === "Completed" ||
+                        !docs.some(
+                          (d) =>
+                            d.bucket === "Registration" &&
+                            d.type === "Sale deed",
+                        )
+                      }
+                      onClick={() =>
+                        update((d) => {
+                          d.registrations[u.id] = {
+                            status: "Completed",
+                            date: iso(),
+                          };
+                        })
+                      }
+                    >
+                      Complete registration
+                    </button>
+                    <p className="muted">
+                      An uploaded Sale deed in the Registration bucket is
+                      required.
+                    </p>
+                  </>
+                )}
+              </Section>
+            </>
+          )}
+          {(handover || tab === "Documents" || tab === "Overview") && (
+            <Section title="Unit document repository">
+              <div className="form-actions">
+                <span className="muted">
+                  Executed documents & source records
+                </span>
+                <button onClick={() => M("Upload")}>
+                  <Plus size={14} />
+                  Upload
+                </button>
+              </div>
+              {[
+                "Agreement for Sale",
+                "Cost Sheet & Payment Schedule",
+                "Customer Allotment Letter",
+                ...(u.tds ? ["TDS Receipt"] : []),
+              ].map((title, i) => (
+                <div className="document-row" key={title}>
+                  <FileText size={18} />
+                  <b>{title}</b>
+                  <Chip>
+                    {i === 1 ? "D365" : i === 3 ? "CRM / D365" : "SharePoint"}
+                  </Chip>
+                  <button
+                    onClick={() =>
+                      window.open(placeholderPdf(title), "_blank", "noopener")
+                    }
+                  >
+                    View / Download
+                  </button>
+                </div>
+              ))}
+              {!u.tds && (
+                <p className="muted">
+                  TDS: Not received – TDS currently arrives by email
+                </p>
+              )}
+              {docs.map((d) => (
+                <div className="document-row" key={d.id}>
+                  <FileText size={18} />
+                  <span>
+                    {d.name}
+                    <small>
+                      {d.bucket} · {d.type} · {user.name} · {date(d.date)}
+                    </small>
+                  </span>
+                  <a href={d.url || placeholderPdf(d.name)} download={d.name}>
+                    Download
+                  </a>
+                </div>
+              ))}
+              {handover && (
+                <>
+                  <h3>Templates & system letters</h3>
+                  {[
+                    "Pre-inspection checklist",
+                    "Possession letter",
+                    "Handover intimation letter",
+                    "No-dues certificate",
+                  ].map((t) => (
+                    <div className="document-row" key={t}>
+                      <FileText size={18} />
+                      <b>{t}</b>
+                      <button onClick={() => M(t)}>Open / Share</button>
+                    </div>
+                  ))}
+                </>
+              )}
+            </Section>
+          )}
+          {!handover && (tab === "Remarks" || tab === "Overview") && (
+            <Section title="Consolidated remarks">
+              <Select
+                value={area}
+                onChange={A}
+                options={[
+                  "Unit",
+                  "Collections",
+                  "Handover",
+                  "Registration",
+                  "Ticket",
+                ]}
+                label="All areas"
+              />
+              {remarks.length ? (
+                remarks.map((r) => (
+                  <div key={r.id} className="remark">
+                    <div>
+                      <b>{r.author}</b>{" "}
+                      <Chip>
+                        {r.area}
+                        {r.ticketId && ` · ${r.ticketId}`}
+                      </Chip>{" "}
+                      {r.role !== "RM" && <Chip>Supervisor</Chip>}
+                      <small>
+                        {r.role} · {date(r.date, true)}
+                      </small>
+                    </div>
+                    <p>{r.text}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="empty">No remarks yet.</div>
+              )}
+              <RemarkForm key={u.id} unitId={u.id} />
+            </Section>
+          )}
+          {!handover && (tab === "Timeline" || tab === "Overview") && (
+            <Section title="Activity timeline">
+              <Chip>Placeholder stages</Chip>
+              {[
+                ["Booking", u.bookingDate],
+                ["Agreement execution", u.agreementDate],
+                ["Foundation", u.agreementDate],
+                ["Floor slabs", u.readyDate],
+                ["Handover", db.handovers[u.id]?.date],
+                ["Registration", db.registrations[u.id]?.date],
+              ].map(([l, d]) => (
+                <div className="timeline-row" key={l}>
+                  <i />
+                  <b>{l}</b>
+                  <span>{d ? date(d) : "Pending"}</span>
+                </div>
+              ))}
+            </Section>
+          )}
+        </div>
+        {!handover && (
+          <div>
+            <Section title="Site visit scheduler">
+              <div className="split-stats">
+                <Kpi
+                  label="Requests"
+                  value={
+                    db.visits.filter(
+                      (v) => v.unitId === u.id && v.status === "Requested",
+                    ).length
+                  }
+                />
+                <Kpi
+                  label="Completed"
+                  value={
+                    db.visits.filter(
+                      (v) => v.unitId === u.id && v.status === "Completed",
+                    ).length
+                  }
+                />
+              </div>
+              {db.visits
+                .filter((v) => v.unitId === u.id)
+                .map((v) => (
+                  <div className="document-row" key={v.id}>
+                    <div>
+                      <b>{v.category}</b>
+                      <small>
+                        {date(v.date, true)} · {v.status}
+                      </small>
+                    </div>
+                    {v.status === "Requested" && (
+                      <button
+                        onClick={() => {
+                          VC(v.category);
+                          M("Schedule");
+                        }}
+                      >
+                        Schedule
+                      </button>
+                    )}
+                  </div>
+                ))}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  update((d) => {
+                    const request = d.visits.find(
+                      (v) =>
+                        v.unitId === u.id &&
+                        v.status === "Requested" &&
+                        v.category === category,
+                    );
+                    if (request) {
+                      request.status = "Scheduled";
+                      request.date = new Date(visitDate).toISOString();
+                      request.note = note;
+                    } else
+                      d.visits.push({
+                        id: createId(),
+                        unitId: u.id,
+                        category,
+                        status: "Scheduled",
+                        date: new Date(visitDate).toISOString(),
+                        note,
+                      });
+                    if (category === "Handover")
+                      d.handovers[u.id] = {
+                        status: "Appointment Booked",
+                        date: new Date(visitDate).toISOString(),
+                      };
+                  });
+                  VD("");
+                  N("");
+                  M("Visit scheduled successfully");
+                }}
+              >
+                <h3>Schedule a visit</h3>
+                <label>
+                  Date & time
+                  <input
+                    required
+                    aria-label="Visit date and time"
+                    type="datetime-local"
+                    min={new Date().toISOString().slice(0, 16)}
+                    value={visitDate}
+                    onChange={(e) => VD(e.target.value)}
+                  />
+                </label>
+                <label>
+                  Category
+                  <Select
+                    value={category}
+                    onChange={VC}
+                    options={["Site Visit", "Handover", "Pre-inspection"]}
+                  />
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => N(e.target.value)}
+                  placeholder="Visit note"
+                />
+                <button className="primary full">Schedule visit</button>
+              </form>
+            </Section>
+            <Section title="Upsell requests">
+              {db.upsells
+                .filter((x) => x.unitId === u.id)
+                .map((x) => (
+                  <div className="remark" key={x.id}>
+                    <b>{x.category}</b> <Chip>{x.status}</Chip>
+                    <small>
+                      {x.id} · {x.source} · {date(x.date)}
+                    </small>
+                  </div>
+                ))}
+              {!db.upsells.some((x) => x.unitId === u.id) && <p>NA</p>}
+              <Select value={ups} onChange={U} options={config.upsells} />
+              <button
+                onClick={() =>
+                  update((d) =>
+                    d.upsells.push({
+                      id: `UP-${Date.now()}`,
+                      unitId: u.id,
+                      category: ups,
+                      status: "Initiated",
+                      source: "RM",
+                      date: iso(),
+                    }),
+                  )
+                }
+              >
+                + Create request
+              </button>
+            </Section>
+            <Section title="Customer tickets">
+              {db.tickets
+                .filter((t) => t.unitId === u.id)
+                .map((t) => (
+                  <Link
+                    className="document-row"
+                    key={t.id}
+                    to={`/tickets/${t.id}`}
+                  >
+                    <div>
+                      <b>{t.subject}</b>
+                      <small>
+                        {t.id} · {t.priority || "Unassigned"}
+                      </small>
+                    </div>
+                    <Chip>{t.status}</Chip>
+                  </Link>
+                ))}
+              {user.role !== "Leadership" && (
+                <button onClick={() => M("Raise ticket")}>
+                  + Raise ticket
+                </button>
+              )}
+            </Section>
+          </div>
+        )}
+      </div>
+      {modal && (
+        <Modal
+          title={modal === "Statement" ? "Provisional statement" : modal}
+          close={() => M("")}
+        >
+          {modal === "Upload" ? (
+            <>
+              <label>
+                Bucket
+                <Select
+                  label="Bucket"
+                  value={bucket}
+                  onChange={B}
+                  options={["General", "Handover", "Registration"]}
+                />
+              </label>
+              <label>
+                Document type
+                <Select
+                  label="Document type"
+                  value={docType}
+                  onChange={DT}
+                  options={[
+                    "RM upload",
+                    "Customer sign-off",
+                    "Sale deed",
+                    "TDS receipt",
+                  ]}
+                />
+              </label>
+              <input
+                aria-label="Upload document"
+                type="file"
+                accept=".pdf,.doc,.docx,.png,.jpg"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 2000000) {
+                      M(
+                        "Please choose a file below 2 MB for this local prototype.",
+                      );
+                      return;
+                    }
+                    void upload(file);
+                  }
+                }}
+              />
+            </>
+          ) : modal === "Statement" ? (
+            <>
+              <p>Generated on demand – not stored</p>
+              <h3>
+                {u.name} · {u.unitNo}
+              </h3>
+              <DataList
+                name="Account statement"
+                rows={db.ledger
+                  .filter(
+                    (t) =>
+                      t.unitId === u.id &&
+                      !(t.type === "Interest" && t.debit < 100),
+                  )
+                  .map((t, i, arr) => ({
+                    Date: date(t.date),
+                    Particulars: t.type,
+                    Debit: money(t.debit),
+                    Credit: money(t.credit),
+                    Balance: money(
+                      arr
+                        .slice(0, i + 1)
+                        .reduce((s, t) => s + t.debit - t.credit, 0),
+                    ),
+                  }))}
+              />
+              <button onClick={() => window.print()}>
+                Print / Download PDF
+              </button>
+            </>
+          ) : modal === "Raise ticket" ||
+            modal === "Profile correction (D365)" ? (
+            <RaiseTicket
+              unitId={u.id}
+              internal={modal !== "Raise ticket"}
+              close={() => M("")}
+            />
+          ) : [
+              "Pre-inspection checklist",
+              "Possession letter",
+              "Handover intimation letter",
+              "No-dues certificate",
+            ].includes(modal) ? (
+            <Template title={modal} unit={u} />
+          ) : (
+            <p>
+              {modal === "Schedule"
+                ? "Choose date, time and category in the scheduler form."
+                : modal}
+            </p>
+          )}
+        </Modal>
+      )}
+    </>
+  );
+}
+function Handover() {
+  const { db, units, user } = useData();
+  const [tab, T] = useState("Handover"),
+    [q, Q] = useState(""),
+    [status, S] = useState(""),
+    [ready, R] = useState(false),
+    [remark, RM] = useState(""),
+    [template, Temp] = useState(""),
+    [selected, U] = useState(units[0]?.id || ""),
+    [rm, Rm] = useState("");
+  const nav = useNavigate();
+  const filtered = units.filter(
+    (u) =>
+      (tab === "Handover" || !!projects[u.projectId].oc) &&
+      (!rm || u.rmIds.includes(rm)) &&
+      (!ready || (u.ready && !db.handovers[u.id])) &&
+      `${u.name} ${u.unitNo} ${projects[u.projectId].name}`
+        .toLowerCase()
+        .includes(q.toLowerCase()) &&
+      (!status ||
+        (tab === "Handover"
+          ? handoverStage(db, u)
+          : db.registrations[u.id]?.status || "Pending") === status),
+  );
+  return (
+    <>
+      <Heading
+        title="Handover & registration"
+        subtitle="From ready to move-in. Make every milestone seamless."
+      />
+      <div className="kpi-grid four">
+        <Kpi
+          label="Scheduled handovers"
+          value={
+            units.filter(
+              (u) =>
+                db.handovers[u.id]?.status === "Appointment Booked" &&
+                Date.parse(db.handovers[u.id].date) >= Date.now(),
+            ).length
+          }
+        />
+        <Kpi
+          label="Initiated registrations"
+          value={
+            units.filter(
+              (u) =>
+                !!db.registrations[u.id] &&
+                db.registrations[u.id].status !== "Completed",
+            ).length
+          }
+        />
+        <Kpi
+          label="Pre-handover inspections"
+          value={
+            db.visits.filter(
+              (v) =>
+                v.category === "Pre-inspection" &&
+                v.status === "Scheduled" &&
+                Date.parse(v.date) >= Date.now() &&
+                units.some((u) => u.id === v.unitId),
+            ).length
+          }
+        />
+        <button
+          className={`highlight-kpi ${ready ? "selected" : ""}`}
+          onClick={() => R(!ready)}
+        >
+          <Kpi
+            label="Ready – Handover Not Initiated"
+            value={units.filter((u) => u.ready && !db.handovers[u.id]).length}
+            source="CMS / CRM"
+          />
+        </button>
+      </div>
+      <Tabs
+        values={["Handover", "Registration"]}
+        value={tab}
+        set={(v) => {
+          T(v);
+          S("");
+          R(false);
+        }}
+      />
+      <Toolbar
+        search={q}
+        setSearch={Q}
+        reset={() => {
+          Q("");
+          S("");
+          R(false);
+          Rm("");
+        }}
+      >
+        <Select
+          label="Status"
+          value={status}
+          onChange={S}
+          options={
+            tab === "Handover"
+              ? [
+                  "Handover Ready",
+                  "Initiated",
+                  "Appointment Booked",
+                  "Completed",
+                ]
+              : ["Pending", "Details Collected", "Completed"]
+          }
+        />
+        {user.role !== "RM" && (
+          <Select
+            label="RM"
+            value={rm}
+            onChange={Rm}
+            options={reportingRms(user.id).map((u) => u.id)}
+            optionLabels={Object.fromEntries(users.map((u) => [u.id, u.name]))}
+          />
+        )}
+      </Toolbar>
+      <DataList
+        name={`${tab} list`}
+        rows={filtered.map((u) => ({
+          _id: u.id,
+          Unit: u.unitNo,
+          Customer: u.name,
+          ...(user.role !== "RM" ? { "Assigned RM": assignedName(u) } : {}),
+          Project: `${projects[u.projectId].name} · T-${u.wing}`,
+          Status:
+            tab === "Handover"
+              ? handoverStage(db, u)
+              : db.registrations[u.id]?.status || "Pending",
+          Remarks: latest(db, u.id, tab)?.text || "—",
+        }))}
+        onRow={(r) => nav(`/handover-registration/${r._id}`)}
+        extra={(r) => (
+          <button onClick={() => RM(String(r._id))}>+ Remark</button>
+        )}
+      />
+      <Section title="Document repository">
+        <label>
+          Pre-fill for unit
+          <select value={selected} onChange={(e) => U(e.target.value)}>
+            {units.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.unitNo} · {u.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {[
+          "Pre-inspection checklist",
+          "Possession letter",
+          "Home automation – Neopolis T-A/T-B",
+          "Registration form",
+          "Registration letter",
+        ].map((t) => (
+          <div className="document-row" key={t}>
+            <FileText size={18} />
+            <b>{t}</b>
+            <Chip>CMS</Chip>
+            <button onClick={() => Temp(t)}>Open template</button>
+          </div>
+        ))}
+      </Section>
+      {remark && (
+        <Modal title={`${tab} remark`} close={() => RM("")}>
+          <RemarkForm unitId={remark} area={tab} done={() => RM("")} />
+        </Modal>
+      )}
+      {template && (
+        <Modal title={template} close={() => Temp("")}>
+          <Template
+            title={template}
+            unit={units.find((u) => u.id === selected)!}
+          />
+        </Modal>
+      )}
+    </>
+  );
+}
+function Template({ title, unit }: { title: string; unit: Unit }) {
+  const [keys, K] = useState("2"),
+    [shared, S] = useState(false);
+  return (
+    <>
+      <p className="muted">Generated on demand – not stored</p>
+      <div className="letter">
+        <h2>SOBHA</h2>
+        <h3>{title}</h3>
+        <p>Customer: {unit.name}</p>
+        <p>
+          Unit: {unit.unitNo} · Tower {unit.wing} ·{" "}
+          {projects[unit.projectId].name}
+        </p>
+        <p>Agreement date: {date(unit.agreementDate)}</p>
+        <label>
+          Number of keys
+          <input
+            type="number"
+            min="0"
+            value={keys}
+            onChange={(e) => K(e.target.value)}
+          />
+        </label>
+        <p>Date: {date(iso())}</p>
+        <p>Customer signature: ____________________</p>
+      </div>
+      <div className="form-actions">
+        <button onClick={() => window.print()}>Print / Download PDF</button>
+        <button className="primary" onClick={() => S(true)}>
+          Share for signing
+        </button>
+      </div>
+      {shared && (
+        <p role="status" className="success">
+          Signing request shared (simulated).
+        </p>
+      )}
+    </>
+  );
+}
+function RaiseTicket({
+  unitId = "",
+  internal = false,
+  close,
+}: {
+  unitId?: string;
+  internal?: boolean;
+  close: () => void;
+}) {
+  const { units, update, user } = useData();
+  const [unit, U] = useState(unitId),
+    [subject, S] = useState(internal ? "Profile correction (D365)" : ""),
+    [desc, D] = useState(""),
+    [priority, P] = useState(""),
+    [team, T] = useState("Sales Accounts"),
+    [category, C] = useState("Collections");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        update((d) =>
+          d.tickets.unshift({
+            id: `TK-${Date.now()}`,
+            unitId: unit,
+            subject,
+            description: desc,
+            type: internal ? "Internal" : "Customer",
+            assignedRmId: units.find((u) => u.id === unit)!.rmIds[0],
+            category,
+            priority,
+            status: "Open",
+            source: "RM",
+            date: iso(),
+            team,
+          }),
+        );
+        close();
+      }}
+    >
+      <label>
+        Linked customer / unit
+        <input
+          required
+          list="unit-picker"
+          value={unit}
+          onChange={(e) => U(e.target.value)}
+          placeholder="Search unit or customer"
+        />
+        <datalist id="unit-picker">
+          {units.map((u) => (
+            <option value={u.id} key={u.id}>
+              {u.unitNo} · {u.name}
+            </option>
+          ))}
+        </datalist>
+      </label>
+      {!units.some((u) => u.id === unit) && unit && (
+        <p className="danger">Select a mapped unit from the suggestions.</p>
+      )}
+      {internal && (
+        <label>
+          To team
+          <Select
+            value={team}
+            onChange={T}
+            options={[
+              "Sales Accounts",
+              "Legal",
+              "Audit",
+              "D365 Support",
+              "Projects",
+            ]}
+          />
+        </label>
+      )}
+      <label>
+        Category
+        <Select
+          value={category}
+          onChange={C}
+          options={[
+            "Collections",
+            "Handover",
+            "Registration",
+            "Profile correction (D365)",
+            "General",
+          ]}
+        />
+      </label>
+      <label>
+        Subject
+        <input required value={subject} onChange={(e) => S(e.target.value)} />
+      </label>
+      <label>
+        Description
+        <textarea required value={desc} onChange={(e) => D(e.target.value)} />
+      </label>
+      {user.role === "RM" && (
+        <Select
+          label="Priority"
+          value={priority}
+          onChange={P}
+          options={["High", "Medium", "Low"]}
+        />
+      )}
+      <button disabled={!units.some((u) => u.id === unit)} className="primary">
+        Raise {internal ? "internal " : ""}ticket
+      </button>
+    </form>
+  );
+}
+function Tickets() {
+  const { db, units, authorized, update, user } = useData();
+  const { ticketId } = useParams();
+  const nav = useNavigate();
+  const [q, Q] = useState(""),
+    [tab, T] = useState("Customer"),
+    [status, S] = useState(""),
+    [priority, P] = useState(""),
+    [modal, M] = useState(""),
+    [visibility, V] = useState("External"),
+    [text, Text] = useState(""),
+    [rm, R] = useState(""),
+    [department, Department] = useState("");
+  useEffect(() => {
+    Text("");
+    V("External");
+    M("");
+  }, [ticketId]);
+  const list = db.tickets.filter((t) => units.some((u) => u.id === t.unitId));
+  const ticket = db.tickets.find(
+    (t) => t.id === ticketId && authorized.some((u) => u.id === t.unitId),
+  );
+  const filtered = list.filter(
+    (t) =>
+      t.type === tab &&
+      (!department || t.team === department) &&
+      (!status || t.status === status) &&
+      (!priority || t.priority === priority) &&
+      (!rm || units.find((u) => u.id === t.unitId)?.rmIds.includes(rm)) &&
+      `${t.id} ${t.subject} ${units.find((u) => u.id === t.unitId)?.name} ${units.find((u) => u.id === t.unitId)?.unitNo}`
+        .toLowerCase()
+        .includes(q.toLowerCase()),
+  );
+  const remarks = db.remarks.filter((r) => r.ticketId === ticketId);
+  return (
+    <>
+      <Heading
+        title="Tickets"
+        subtitle="Resolve questions. Build trust. Keep conversations moving."
+        action={
+          user.role !== "Leadership" ? (
+            <button className="primary" onClick={() => M("Raise ticket")}>
+              <Plus size={16} />
+              Raise ticket
+            </button>
+          ) : (
+            <Chip>Read-only ticket oversight</Chip>
+          )
+        }
+      />
+      <div className="kpi-grid">
+        {["Total (lifetime)", "Open", "Closed"].map((s) => (
+          <Kpi
+            key={s}
+            label={s}
+            value={
+              list.filter((t) => s.startsWith("Total") || t.status === s).length
+            }
+          />
+        ))}
+      </div>
+      <Tabs values={["Customer", "Internal"]} value={tab} set={T} />
+      <Toolbar
+        search={q}
+        setSearch={Q}
+        reset={() => {
+          Q("");
+          S("");
+          P("");
+          R("");
+          Department("");
+        }}
+      >
+        <Select
+          label="Department"
+          value={department}
+          onChange={Department}
+          options={[...new Set(list.map((t) => t.team || "Sales Accounts"))]}
+        />
+        <Select
+          label="Status"
+          value={status}
+          onChange={S}
+          options={["Open", "Closed"]}
+        />
+        <Select
+          label="Priority"
+          value={priority}
+          onChange={P}
+          options={["High", "Medium", "Low"]}
+        />
+        {user.role !== "RM" && (
+          <Select
+            label="RM"
+            value={rm}
+            onChange={R}
+            options={reportingRms(user.id).map((u) => u.id)}
+            optionLabels={Object.fromEntries(users.map((u) => [u.id, u.name]))}
+          />
+        )}
+      </Toolbar>
+      <DataList
+        name={`${tab} tickets`}
+        rows={filtered.map((t) => ({
+          _id: t.id,
+          "Ticket ID": t.id,
+          Customer: units.find((u) => u.id === t.unitId)?.name,
+          Unit: units.find((u) => u.id === t.unitId)?.unitNo,
+          Subject: t.subject,
+          ...(user.role !== "RM"
+            ? {
+                "Assigned RM": assignedName(
+                  units.find((u) => u.id === t.unitId)!,
+                ),
+                Department: t.team || "Sales Accounts",
+                SLA: t.slaDueAt ? date(t.slaDueAt, true) : "SLA not configured",
+              }
+            : {}),
+          "Raised by": `${t.source === "CustomerApp" ? "Customer (app)" : "RM"} · ${date(t.date)}`,
+          Priority: t.priority,
+          Status: t.status,
+          "Latest remark":
+            db.remarks
+              .filter((r) => r.ticketId === t.id)
+              .sort((a, b) => b.date.localeCompare(a.date))[0]?.text || "—",
+        }))}
+        onRow={(r) => nav(`/tickets/${r._id}`)}
+      />
+      {ticket && (
+        <Modal
+          title={`${ticket.id} · ${ticket.subject}`}
+          close={() => nav("/tickets")}
+        >
+          <p>
+            <Link to={`/customers/${ticket.unitId}`}>
+              {authorized.find((u) => u.id === ticket.unitId)?.name} ·{" "}
+              {authorized.find((u) => u.id === ticket.unitId)?.unitNo}
+            </Link>
+          </p>
+          <p className="muted">
+            {ticket.source === "CustomerApp" ? "Customer (app)" : "RM"} ·{" "}
+            {date(ticket.date)}
+          </p>
+          <p>{ticket.description}</p>
+          <div className="form-actions">
+            {user.role === "RM" ? (
+              <Select
+                label="Set priority"
+                value={ticket.priority}
+                onChange={(v) =>
+                  update((d) => {
+                    d.tickets.find((t) => t.id === ticket.id)!.priority = v;
+                  })
+                }
+                options={["High", "Medium", "Low"]}
+              />
+            ) : (
+              <Chip>{ticket.priority || "Priority not assigned"}</Chip>
+            )}
+            {user.role !== "Leadership" && (
+              <>
+                <button
+                  onClick={() =>
+                    update((d) => {
+                      d.tickets.find((t) => t.id === ticket.id)!.status =
+                        ticket.status === "Open" ? "Closed" : "Open";
+                    })
+                  }
+                >
+                  Mark {ticket.status === "Open" ? "Closed" : "Open"}
+                </button>
+                <button onClick={() => M("Raise internal ticket")}>
+                  Raise internal ticket
+                </button>
+              </>
+            )}
+          </div>
+          <Tabs values={["External", "Internal"]} value={visibility} set={V} />
+          <p className="muted">
+            {visibility === "External"
+              ? "Customer-visible conversation"
+              : "Private to Sobha team · included in consolidated remarks"}
+          </p>
+          {remarks
+            .filter((r) =>
+              visibility === "External"
+                ? r.area === "External"
+                : r.area === "Ticket",
+            )
+            .map((r) => (
+              <div className="remark" key={r.id}>
+                <b>{r.author}</b>
+                <small>{date(r.date, true)}</small>
+                <p>{r.text}</p>
+              </div>
+            ))}
+          {user.role !== "Leadership" && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!text.trim()) return;
+                update((d) =>
+                  d.remarks.push({
+                    id: createId(),
+                    unitId: ticket.unitId,
+                    ticketId: ticket.id,
+                    area: visibility === "External" ? "External" : "Ticket",
+                    text,
+                    author: user.name,
+                    role: user.role,
+                    date: iso(),
+                  }),
+                );
+                Text("");
+              }}
+            >
+              <textarea
+                required
+                value={text}
+                onChange={(e) => Text(e.target.value)}
+                placeholder={`Add ${visibility.toLowerCase()} reply…`}
+              />
+              <button className="primary">Send reply</button>
+            </form>
+          )}
+        </Modal>
+      )}
+      {ticketId && !ticket && (
+        <p className="danger">Ticket not found in your portfolio.</p>
+      )}
+      {modal && (
+        <Modal title={modal} close={() => M("")}>
+          <RaiseTicket
+            unitId={ticket?.unitId}
+            internal={modal === "Raise internal ticket"}
+            close={() => M("")}
+          />
+        </Modal>
+      )}
+    </>
+  );
+}
+function Projects() {
+  const { db } = useData();
+  const [pid, P] = useState("0"),
+    [wing, W] = useState("B"),
+    [q, Q] = useState(""),
+    [location, L] = useState(""),
+    [modal, M] = useState(""),
+    [shared, S] = useState(false);
+  const p = projects[+pid],
+    units = db.units.filter((u) => u.projectId === p.id && u.wing === wing);
+  const stages = [
+    "Excavation",
+    "Basement slabs",
+    "Ground floor",
+    "Floors 1–10 slabs",
+    "Floor 11",
+    "Floor 12",
+    "Floor 13 slab",
+    "MEP & finishing",
+  ];
+  return (
+    <>
+      <Heading
+        title="Projects"
+        subtitle="Construction progress, inventory and project resources."
+      />
+      <div className="welcome-strip">
+        View only · all projects · updated via CMS
+      </div>
+      <Toolbar search={q} setSearch={Q}>
+        <select
+          aria-label="Project"
+          value={pid}
+          onChange={(e) => P(e.target.value)}
+        >
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <Select
+          label="Tower / Wing"
+          value={wing}
+          onChange={W}
+          options={["A", "B", "C", "D"]}
+        />
+        <Select
+          label="Location"
+          value={location}
+          onChange={L}
+          options={[...new Set(projects.map((p) => p.location))]}
+        />
+      </Toolbar>
+      {(!location || location === p.location) &&
+      `${p.name} ${p.location}`.toLowerCase().includes(q.toLowerCase()) ? (
+        <>
+          <div className="project-banner">
+            <div>
+              <span className="eyebrow">PROJECT OVERVIEW</span>
+              <h1>{p.name}</h1>
+              <p>
+                {p.address} · Tower {wing}
+              </p>
+              <Chip>{p.oc ? "OC received" : "Under construction"}</Chip>
+            </div>
+            <Building2 size={80} />
+          </div>
+          <div className="detail-grid">
+            <Section title="Construction milestones">
+              {stages.map((s, i) => (
+                <div className="timeline-row" key={s}>
+                  <i />
+                  <b>{s}</b>
+                  <Chip>
+                    {i < 5
+                      ? "Completed"
+                      : i < 7
+                        ? "In Progress"
+                        : "Not Started"}
+                  </Chip>
+                  <span>
+                    Updated{" "}
+                    {date(new Date(Date.now() - 8 * 86400000).toISOString())}
+                  </span>
+                </div>
+              ))}
+            </Section>
+            <Section title="Tower inventory">
+              <p>
+                {units.length} total ·{" "}
+                {units.filter((u) => u.status !== "Unsold").length} sold ·{" "}
+                {units.filter((u) => u.status === "Unsold").length} available
+              </p>
+              <ResponsiveContainer width="100%" height={190}>
+                <BarChart
+                  data={[
+                    "Unsold",
+                    "Active",
+                    "Cancelled",
+                    "Shifted",
+                    "Reassigned",
+                  ].map((s) => ({
+                    name: s,
+                    count: units.filter((u) => u.status === s).length,
+                  }))}
+                >
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#948254" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              {["Unsold", "Active", "Cancelled", "Shifted", "Reassigned"].map(
+                (s) => (
+                  <div className="count-row" key={s}>
+                    <span>{s === "Unsold" ? "Unallocated" : s}</span>
+                    <b>{units.filter((u) => u.status === s).length}</b>
+                  </div>
+                ),
+              )}
+            </Section>
+          </div>
+          <Section title="Project document repository">
+            {[
+              "RERA Certificate",
+              "Master Layout Plan",
+              "Floor Plans",
+              "Approvals",
+              "Construction Schedule",
+            ].map((t) => (
+              <div className="document-row" key={t}>
+                <FileText size={20} />
+                <b>{t}</b>
+                <small>CMS · Updated {date(iso())}</small>
+                <button
+                  onClick={() => {
+                    M(t);
+                    S(false);
+                  }}
+                >
+                  View / Share
+                </button>
+              </div>
+            ))}
+          </Section>
+          <Section title="Construction photos & progress report">
+            <p className="muted">
+              Oct 2026 · Photos uploaded 28 Oct · Report pending
+            </p>
+            <div className="photo-grid">
+              {["Tower facade", "Landscape progress", "Interior finishing"].map(
+                (title, i) => (
+                  <button
+                    key={title}
+                    className={`photo photo${i}`}
+                    onClick={() =>
+                      M(
+                        `${title} · Tower ${wing} · Illustrative prototype asset`,
+                      )
+                    }
+                  >
+                    <Building2 size={50} />
+                    <span>
+                      {title} · Tower {wing}
+                    </span>
+                  </button>
+                ),
+              )}
+            </div>
+            <p className="muted">
+              Illustrative assets · Actual site photography is not integrated.
+            </p>
+            <button
+              onClick={() =>
+                M("Construction progress report · Placeholder PDF")
+              }
+            >
+              View progress report
+            </button>
+          </Section>
+        </>
+      ) : (
+        <div className="empty">No projects match these filters.</div>
+      )}
+      {modal && (
+        <Modal title={modal} close={() => M("")}>
+          <p>
+            {p.name} · Tower {wing}
+          </p>
+          <a href={placeholderPdf(modal)} target="_blank" rel="noreferrer">
+            Open / Download placeholder PDF
+          </a>
+          <button onClick={() => S(true)}>Share</button>
+          {shared && <p role="status">Shared (simulated).</p>}
+        </Modal>
+      )}
+    </>
+  );
+}
+function Faqs() {
+  const { db, user, update } = useData();
+  const [q, Q] = useState(""),
+    [category, C] = useState("All"),
+    [domain, D] = useState(""),
+    [article, A] = useState(""),
+    [upload, U] = useState(false),
+    [draft, F] = useState(""),
+    [copied, Copy] = useState(false);
+  const selected = db.kb.find((k) => k.id === article);
+  const rows = db.kb.filter(
+    (k) =>
+      (category === "All" || k.category === category) &&
+      (!domain || k.domain === domain) &&
+      `${k.title} ${k.body} ${k.tags.join(" ")}`
+        .toLowerCase()
+        .includes(q.toLowerCase()),
+  );
+  return (
+    <>
+      <Heading
+        title="Knowledge hub"
+        subtitle="The right answer, at the right time. Resources for every customer conversation."
+        action={
+          user.role !== "RM" ? (
+            <button className="primary" onClick={() => U(true)}>
+              + Admin upload
+            </button>
+          ) : undefined
+        }
+      />
+      <Toolbar
+        search={q}
+        setSearch={Q}
+        reset={() => {
+          Q("");
+          C("All");
+          D("");
+        }}
+      />
+      <Tabs
+        values={["All", "Guidelines", "SOP", "FAQ", "Template"]}
+        value={category}
+        set={C}
+      />
+      <div className="summary-grid">
+        {[
+          ["Guidelines", "Customer handling guidelines"],
+          ["FAQ", "Customer FAQs"],
+          ["SOP", "SOPs & process guides"],
+          ["Template", "Communication templates"],
+        ].map(([cat, title]) => (
+          <Section key={cat} title={title}>
+            {db.kb
+              .filter((k) => k.category === cat)
+              .slice(0, 3)
+              .map((k) => (
+                <button
+                  className="article-link"
+                  key={k.id}
+                  onClick={() => {
+                    A(k.id);
+                    F(k.body);
+                    Copy(false);
+                  }}
+                >
+                  <FileText size={15} />
+                  {k.title}
+                  {Date.now() - Date.parse(k.date) < 14 * 86400000 && (
+                    <Chip>New</Chip>
+                  )}
+                </button>
+              ))}
+            <button className="text-button" onClick={() => C(cat)}>
+              View all →
+            </button>
+          </Section>
+        ))}
+      </div>
+      <h2>Browse by operational domain</h2>
+      <div className="domain-grid">
+        {[...new Set(db.kb.map((k) => k.domain))].map((d) => (
+          <button
+            className={`domain-card ${domain === d ? "selected" : ""}`}
+            key={d}
+            onClick={() => D(domain === d ? "" : d)}
+          >
+            <BookOpen size={22} />
+            <h3>{d}</h3>
+            <p>Practical guidance for your day-to-day interactions.</p>
+            <b>{db.kb.filter((k) => k.domain === d).length} articles →</b>
+          </button>
+        ))}
+      </div>
+      <DataList
+        name="Resources"
+        rows={rows.map((k) => ({
+          _id: k.id,
+          Title: k.title,
+          Category: k.category,
+          Domain: k.domain,
+          Tags: k.tags.join(", "),
+          Updated: date(k.date),
+        }))}
+        onRow={(r) => {
+          const k = db.kb.find((x) => x.id === r._id)!;
+          A(k.id);
+          F(k.body);
+          Copy(false);
+        }}
+      />
+      {selected && (
+        <Modal title={selected.title} close={() => A("")}>
+          <Chip>{selected.category}</Chip>
+          <p className="muted">{selected.domain}</p>
+          {selected.category === "Template" ? (
+            <>
+              <textarea
+                className="draft"
+                value={draft}
+                onChange={(e) => F(e.target.value)}
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(draft);
+                    Copy(true);
+                  } catch {
+                    Copy(false);
+                  }
+                }}
+              >
+                {copied ? "Copied" : "Copy draft"}
+              </button>
+            </>
+          ) : (
+            <ReactMarkdown>{selected.body}</ReactMarkdown>
+          )}
+        </Modal>
+      )}
+      {upload && (
+        <Modal title="Upload knowledge resource" close={() => U(false)}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const data = new FormData(e.currentTarget);
+              update((d) =>
+                d.kb.unshift({
+                  id: createId(),
+                  title: String(data.get("title")),
+                  category: String(data.get("category")),
+                  domain: String(data.get("domain")),
+                  tags: String(data.get("tags")).split(","),
+                  body: String(data.get("body")),
+                  date: iso(),
+                }),
+              );
+              U(false);
+            }}
+          >
+            <label>
+              Title
+              <input name="title" required />
+            </label>
+            <label>
+              Category
+              <select name="category">
+                {["Guidelines", "SOP", "FAQ", "Template"].map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Domain
+              <select name="domain">
+                {[...new Set(db.kb.map((k) => k.domain))].map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Tags
+              <input name="tags" placeholder="Comma separated" />
+            </label>
+            <label>
+              Body
+              <textarea name="body" required />
+            </label>
+            <button className="primary">Save resource</button>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}
