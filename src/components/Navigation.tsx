@@ -1,3 +1,4 @@
+import { Brand } from "./Brand";
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { NavLink, useLocation } from "react-router-dom";
@@ -52,13 +53,6 @@ function NavigationLinks({ role, close }: { role: Role; close?: () => void }) {
         );
       })}
     </nav>
-  );
-}
-function Brand() {
-  return (
-    <div className="brand">
-      SOBHA<span>PASSION AT WORK</span>
-    </div>
   );
 }
 export function DesktopNavigation({

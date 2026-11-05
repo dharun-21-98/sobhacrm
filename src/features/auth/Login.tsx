@@ -1,3 +1,4 @@
+import { Brand } from "../../components/Brand";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -38,9 +39,7 @@ export function Login() {
   return (
     <div className="login-page">
       <div className="login-story">
-        <div className="brand">
-          SOBHA<span>PASSION AT WORK</span>
-        </div>
+        <Brand />
         <div className="login-story-content">
           <div className="eyebrow">RELATIONSHIPS THAT BUILD THE FUTURE</div>
           <h1>

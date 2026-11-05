@@ -141,14 +141,7 @@ input[type="checkbox"] {
   font-size: 34px;
   margin: 31px 29px 43px;
 }
-.brand span {
-  display: block;
-  font-family: sans-serif;
-  font-size: 7px;
-  letter-spacing: 2.9px;
-  margin: 6px 0 0 3px;
-  color: #b5b5a0;
-}
+
 .nav-label {
   font-size: 9px;
   letter-spacing: 1.5px;
@@ -1229,7 +1222,6 @@ tbody tr:hover {
   letter-spacing: 0;
   margin: 25px 6px;
 }
-.collapsed .brand span,
 .collapsed .nav-label,
 .collapsed nav span,
 .collapsed .sidebar-bottom > span {
@@ -2322,5 +2314,63 @@ input[type="file"] {
   .tag-choice,
   .column-options label {
     min-height: 44px;
+  }
+}
+/* Preserve the supplied black-on-white Sobha Realty artwork without recoloring. */
+.brand {
+  width: 166px;
+  max-width: calc(100% - 48px);
+  padding: 10px;
+  background: #fff;
+  border-radius: 3px;
+  line-height: 0;
+  letter-spacing: normal;
+}
+.brand img,
+.mobile-brand img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.login-story .brand {
+  width: 200px;
+  max-width: 100%;
+}
+.collapsed .brand {
+  width: 62px;
+  max-width: calc(100% - 12px);
+  padding: 5px;
+  margin: 25px 6px;
+}
+.mobile-navigation .brand {
+  max-width: calc(100% - 80px);
+}
+.letter .document-brand {
+  width: 170px;
+  max-width: 100%;
+  margin: 0 0 24px;
+  padding: 0;
+}
+@media (max-width: 1024px) {
+  .mobile-brand {
+    width: 100px;
+    padding: 4px;
+    background: #fff;
+    border-radius: 3px;
+    line-height: 0;
+    letter-spacing: normal;
+  }
+  .login-story .brand {
+    width: 170px;
+  }
+}
+@media (max-width: 767px) {
+  .mobile-brand {
+    width: 78px;
+    padding: 3px;
+  }
+  .login-story .brand {
+    width: 150px;
   }
 }

@@ -1,3 +1,4 @@
+import { Brand } from "../components/Brand";
 import { DesktopNavigation, MobileNavigation } from "../components/Navigation";
 import { useLocation } from "react-router-dom";
 import { useData } from "./useData";
@@ -165,9 +166,7 @@ function ApplicationShell() {
       <div className="main">
         <header className="app-header" ref={headerRef}>
           <MobileNavigation role={user.role} />
-          <span className="mobile-brand" aria-hidden="true">
-            SOBHA
-          </span>
+          <Brand compact />
           <div className="global-search">
             <Search size={17} />
             <input
@@ -2070,7 +2069,7 @@ function Template({ title, unit }: { title: string; unit: Unit }) {
     <>
       <p className="muted">Generated on demand – not stored</p>
       <div className="letter">
-        <h2>SOBHA</h2>
+        <Brand className="document-brand" />
         <h3>{title}</h3>
         <p>Customer: {unit.name}</p>
         <p>
